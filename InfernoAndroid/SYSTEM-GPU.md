@@ -328,3 +328,31 @@ spawn context или доверие к назначению профиля. Пр
 менялись; отключение его sandbox не является предлагаемым решением.
 
 Формат команд и воспроизводимая сборка: [SYSTEM-GPU-HOST.md](SYSTEM-GPU-HOST.md).
+
+## Этап 0.8.0-gpuhost: хост на телефоне, время жизни с VM, client arrays
+
+Ветка `ccr-c160a62d-wa50md` в NastyaKus/lighttouchios10.3, база — импорт
+f1e0436 без изменений (отдельный коммит). Ускорения iOS по-прежнему **нет**:
+гостевой frontend (пункт 1), установка в копию APFS (4) и блокер exec
+backboardd 9/8 этим этапом не затрагивались.
+
+| Что | Состояние и граница |
+|---|---|
+| Сборка `gpuTest` | Пакет `dev.embervm.android.gpu`, имя «Ember GPU (тест)», свой Android/data и taskAffinity `${applicationId}.vm`. Ставится **рядом** с рабочим Ember VM 0.7.0, ключ которого в исходниках отсутствует. `./gradlew :app:assembleGpuTest`. |
+| Импорт из рабочего Ember | `tools/import-from-installed/import.py` (adb, stdlib Python) + `ember-import` (static arm64, `build.sh`). Оба приложения останавливаются; источник открывается только на чтение; нулевые блоки 64 КиБ пропускаются; каждый файл пишется в `.part`, fsync, повторное чтение, SHA-256 сравнивается, только затем rename. Существующие файлы — только с `--replace`. Режим `move` из плана отброшен: при переносе между папками пакетов через FUSE владелец файлов может остаться прежним, и тестовая сборка их не прочитает. На Linux проверено поддельным adb (`test.py`) и под qemu-aarch64 (аппаратный SHA2-путь); на телефоне не проверено. |
+| Проверка хоста | GPU-стенд → «Проверить системный GPU-хост». `:system_gpu` исполняет сценарий `gpu-bridge/system/selftest.c` от клиента в процессе стенда (`libember_system_gpu_selftest`, собственные SHA-256/HMAC, сверены с OpenSSL): шейдеры, матрица, sampler, indexed draw, BGRA IOSurface со stride 72 через два texture view, два общих контекста, полное чтение 5935104 байт с попиксельной сверкой, 180 замеренных draw+present в SurfaceView, затем PixelCopy четырёх точек до закрытия. PASSED требует всех present, хотя бы одного кадра в окне, совпадения пикселей (±4) и отсутствия ошибки хоста. JSON — `gpu-lab/system-host-selftest.json` в «Диагностике ZIP», всегда `iosGpuVerified=false`. На Linux/Mesa через настоящий JNI проходит (окна нет, `presented_to_window=0`); **на Adreno не запускалось**. |
+| Хост на время VM | Настройка «Системный GPU-хост · эксперимент», по умолчанию выключена. VmService поднимает `:system_gpu` после старта движка с новыми run/secret, закрывает вместе с процессом VM. Хост **без окна**: у Surface VM один производитель — рендерер `:vm`. Дескриптор канала (порт, run, secret; адрес гостя 10.0.2.2:порт) — 4096-байтный блок с CRC, 0600, в приватной папке, стирается при остановке. **К гостю не подключается**: в iOS его ещё некому читать, поэтому диски и аргументы QEMU не меняются. Сбой хоста VM не останавливает; latch выключает хост на следующих запусках до «Разрешить снова». `system-gpu-vm.json` и причина latch — в диагностике. |
+| `EGS_DRAW_CLIENT` (128) | Client-side vertex arrays и индексы из upload одной командой; проверка границ всех записей/индексов/instances и VBO-атрибутов гостя до вызова GL; приватные stream-буферы контекста, до 16 МиБ на draw; восстановление прежних pointers/normalized/привязок; работает внутри BATCH. Покрыто `host-test.c`, включая ASan/UBSan. Блоки IOSurface (гостевые ID, dirty-rect upload с ревизиями, commit, destroy) уже были в f1e0436 и не дублировались. |
+| `tools/system-gpu/ca-gl-usage.py` | По stock cache 18A5351d (read-only, проверка UUID) атрибутирует вызовы QuartzCore через macro context `+0x780` к слотам GLI, сопоставляет с именами из ABI JSON и выводит `missing_in_host` и `private_slots`. Неатрибутируемые вызовы считаются, не угадываются. Тест на синтетическом arm64e-коде; **на настоящем cache не запускался** (его нет в этой среде). |
+
+Проверено в этой среде (Linux x86_64, Mesa llvmpipe 25.2, JDK 21, NDK 28.2):
+143 JVM tests / 0 failures / 0 skipped, включая сквозные C → EGP2 → Kotlin →
+JNI → ES3; `gpu-bridge/test.sh`, `system/build.sh` (OpenSSL и builtin crypto),
+`test-host.sh` (в т.ч. ASan/UBSan), `test-surface.sh`, python-тесты
+(10 + 5 + 12 + 5 + import). `assembleGpuTest`, `lintDebug` (0 errors).
+Движок в APK — `libqemu-aarch64-softmmu.so` из APK 0.7.0 (SHA-256
+9def3582…76e8), байт в байт.
+
+Следующие шаги по порядку: результат проверки хоста на Adreno; `ca-gl-usage.py`
+по настоящему cache → недостающие команды; гостевой root broker (arm64e,
+NCM/slirp → 10.0.2.2) и способ доставки дескриптора гостю; затем frontend.

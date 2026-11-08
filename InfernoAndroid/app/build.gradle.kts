@@ -30,8 +30,8 @@ android {
         applicationId = "dev.embervm.android"
         minSdk = 29
         targetSdk = 35
-        versionCode = 17
-        versionName = "0.7.0-gpubroker"
+        versionCode = 18
+        versionName = "0.8.0-gpuhost"
         ndk { abiFilters += "arm64-v8a" }
         buildConfigField("boolean", "ENGINE_BUNDLED", engineBundled.toString())
         buildConfigField("boolean", "SYSTEM_SIGNER_BUNDLED", systemSignerBundled.toString())
