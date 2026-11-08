@@ -1,0 +1,12 @@
+--- !tapi-tbd-v3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Link interface for the public ABI, not a library implementation.
+archs: [ arm64 ]
+platform: ios
+install-name: /usr/lib/libSystem.B.dylib
+exports:
+  - archs: [ arm64 ]
+    symbols: [ _open, _close, _dup2, _access, _fsync, _mkdir, _rename, _dprintf,
+               _read, _write, _ftruncate, _lseek, _fork, _waitpid, _execv, __exit, _sleep, _usleep,
+               _malloc, _free, _memcpy, _memset, _memcmp, _strlen, _sync, _unmount, _mount, _strncmp, _strstr, ___error, dyld_stub_binder ]
+...

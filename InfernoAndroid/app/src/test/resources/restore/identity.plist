@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Info</key>
+	<dict>
+		<key>DeviceClass</key>
+		<string>n104ap</string>
+		<key>Variant</key>
+		<string>Research Developer Erase</string>
+	</dict>
+	<key>Manifest</key>
+	<dict>
+		<key>DeviceTree</key>
+		<dict>
+			<key>Digest</key>
+			<data>
+			AwMDAwMDAwMDAwMDAwMDAwMDAwM=
+			</data>
+			<key>Info</key>
+			<dict>
+				<key>Path</key>
+				<string>tree.im4p</string>
+			</dict>
+		</dict>
+		<key>KernelCache</key>
+		<dict>
+			<key>Digest</key>
+			<data>
+			AgICAgICAgICAgICAgICAgICAgI=
+			</data>
+			<key>Info</key>
+			<dict>
+				<key>Path</key>
+				<string>kernel.im4p</string>
+			</dict>
+		</dict>
+		<key>OS</key>
+		<dict>
+			<key>Digest</key>
+			<data>
+			AQEBAQEBAQEBAQEBAQEBAQEBAQE=
+			</data>
+			<key>Info</key>
+			<dict>
+				<key>Path</key>
+				<string>system.dmg</string>
+			</dict>
+		</dict>
+	</dict>
+</dict>
+</plist>

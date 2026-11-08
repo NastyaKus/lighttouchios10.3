@@ -1,0 +1,106 @@
+{
+  "version": "0.6.0-gpupresent",
+  "versionCode": 16,
+  "branch": "codex/guest-gpu-bridge",
+  "base_commit": "f3fb118",
+  "date_utc": "2026-11-05",
+  "full_guest_gpu_acceleration_complete": false,
+  "android_window_path_tested_on_phone": false,
+  "android_pixelcopy_runtime_tested": false,
+  "unit_tests": {
+    "tests": 97,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lint_errors": 0,
+  "lint_warnings": 23,
+  "native_tests": "PASS shared RBO colors, producer GL state/context, replay without repeated swap, missing-window refusal, headless recreation",
+  "sanitizers": "ASan+UBSan native unit and complete headless presentation integration PASS, Mesa leak detection disabled",
+  "jni": "Desktop JVM, same JNI wrapper: 60-frame headless roundtrip + 14 stats fields, old 12 fields, cancellation and file refusal PASS",
+  "boot_monitor": "9 synthetic process/evidence checks PASS; no simulated Android window proof accepted",
+  "real_ios_release_kernel_probe": {
+    "engine_source": "b76fa575831d94a80db169ffb3c76d9094a648bd",
+    "guest_memory": "2G",
+    "guest_os_image_present": false,
+    "start_restore_sent": false,
+    "usb_accepted": false,
+    "state": "gpu_commands_verified",
+    "guest_command_roundtrip": true,
+    "guest_readback_verified": true,
+    "guest_registry": [],
+    "guest_graphics_driver_implemented": false,
+    "android_adreno_tested": false,
+    "host_backend": [
+      "Mesa / llvmpipe (LLVM 19.1.7, 256 bits) / OpenGL ES 3.2 Mesa 25.0.7-2+deb13u1"
+    ],
+    "gpu_commands": 316,
+    "gles_api": {
+      "calls": 1262,
+      "batches": 85,
+      "draws": 64,
+      "shader_compiles": 7,
+      "scope": "experimental GLES2 subset, no system-wide integration",
+      "checks": 40
+    },
+    "eagl_offscreen_adapter_verified": true,
+    "headless_presentation": {
+      "frames": 60,
+      "window_frames": 0,
+      "sample_pixels": 240,
+      "cpu_upload_bytes": 0,
+      "android_surface_verified": false
+    },
+    "elapsed_seconds": 49,
+    "qemu_exit": 0,
+    "root_header_and_tail_sha256_before": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+    "root_header_and_tail_sha256_after": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+    "root_sentinel_preserved": true,
+    "root_physical_bytes": 131072,
+    "filesystem_patches_verified": false,
+    "first_ios_boot_verified": false
+  },
+  "reproducible_guest_binaries": {
+    "libEmberGLES.dylib": {
+      "sha256": "c86bb6666c39df671dafbbf3db56769e6e57c2ad1a3a75a1530261006236b525",
+      "bytes": 89312,
+      "rebuild_byte_identical": true
+    },
+    "eagl-api-probe-ios": {
+      "sha256": "73c46ee0f64c98e7720960466c6dc1b4aecf123347edb02678c785ffc5d87f8f",
+      "bytes": 72112,
+      "rebuild_byte_identical": true
+    },
+    "eagl-present-probe-ios": {
+      "sha256": "dacf111af2315816de39c4f7c104626339ced9c730178d54df2790f5a806bbc3",
+      "bytes": 90096,
+      "rebuild_byte_identical": true
+    },
+    "gles-api-probe-ios": {
+      "sha256": "080791f60848faa381539ecfb3bbeb2763fc2b86bef2bccf038a287f91182917",
+      "bytes": 71360,
+      "rebuild_byte_identical": true
+    }
+  },
+  "apk": {
+    "sha256": "4b4cc2040410a18e2009c4f00a9c342b3e3addd3975a5984b8c1386638b15c13",
+    "bytes": 38430889,
+    "native_sha256": {
+      "lib/arm64-v8a/libandroidx.graphics.path.so": "41e9a793c43a0f4fddb19e33f346bace464f30f888ba7b9eaf96294ea115bfb6",
+      "lib/arm64-v8a/libinferno_jni.so": "78c4325ba9536a4abcf27555f5de9bed22c95ec0ddd921fa7e1313f11139a824",
+      "lib/arm64-v8a/libqemu-aarch64-softmmu.so": "9def35821710e4cd50bb1da3bfed565a06931af48632a92f58645d5e7d9976e8",
+      "lib/arm64-v8a/libember_guest_gpu_probe.so": "a22ac5ebd4d0680067556716e080117e1de071fc8c90fdeb325ac705a31cdde2"
+    },
+    "elf_load_alignment_16k": true,
+    "signature_certificate_sha256": "b90496cadbd15120cf72ebb73fa2e29496222ba570a125886967a253e75707ae"
+  },
+  "engine_identical_to_0_5_0": true,
+  "working_guest_disks_used": false,
+  "limits": [
+    "Android EGLWindowSurface, shared-context behavior, Surface Binder lifecycle and PixelCopy need real phone verification",
+    "Custom EmberDiagnosticDrawable, no CAEAGLLayer or ordinary-application integration",
+    "GPU-to-GPU copies, not full zero-copy; four CPU sample pixels per present and one PixelCopy bitmap per Surface generation",
+    "60 frames are test duration, not 60 FPS; 100 ms guest sleep and polling transport remain",
+    "No Metal, IOSurface GPU sharing, compositor, GarageBand or audio integration"
+  ]
+}

@@ -1,0 +1,16 @@
+System executable signing dependency (optional development build)
+
+codesign-jni.cpp: AGPL-3.0-only, Ember VM contributors.
+Procursus ldid: AGPL-3.0-only, upstream copyrights in the pinned source.
+https://github.com/ProcursusTeam/ldid
+commit af86971ae72ec3ed3d0a699107c4e882324c941b
+
+Statically linked dependencies (no Apple implementation):
+OpenSSL 3.5.7: Apache-2.0, OpenSSL project authors.
+libplist 2.6.0: LGPL-2.1-or-later, libplist project authors.
+Exact source URLs, SHA-256 and complete build/relink commands:
+gpu-bridge/build-codesign.py and SYSTEM-GPU.md in the corresponding source.
+
+GPLv3 section 13 permits combining GPLv3 and AGPLv3 code; the AGPL applies to
+the combined work where applicable. This optional library does not relax the
+source-distribution obligations of the engine or guest tools.

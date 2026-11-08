@@ -1,0 +1,10 @@
+--- !tapi-tbd-v3
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Public runtime ABI link interface only, no Apple implementation.
+archs: [ arm64 ]
+platform: ios
+install-name: /usr/lib/libobjc.A.dylib
+exports:
+  - archs: [ arm64 ]
+    symbols: [ _objc_msgSend, _objc_getClass, _objc_alloc, _objc_release ]
+...

@@ -9,13 +9,18 @@
  *
  * The picture never leaves the process: a render thread copies whatever the
  * guest redrew (inferno_display_read) into a frame of its own and from there
- * into the Surface's buffer, swapping BGRA into RGBA on the way. The buffer is
- * the guest's own size; the compositor scales it to the view for free.
+ * into the Surface's buffer. CPU mode swizzles BGRA into RGBX; optional GLES3
+ * uploads BGRA bytes unchanged and swizzles in a shader. The guest still renders
+ * in software. Both backends submit on Android vsync, only after damage.
  *
  * Everything the engine prints goes through a pipe into a log file the app
  * shows, and into logcat under the tag "inferno".
  */
 #include <android/log.h>
+#include <android/choreographer.h>
+#include <android/looper.h>
+#include "gles_renderer.h"
+#include "display_metrics.h"
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
 #include <dlfcn.h>
@@ -60,6 +65,7 @@ static struct {
     void (*display_invalidate)(void);
     FrameResult (*display_read)(void *, size_t, FrameInfo *);
     void (*display_stats)(DisplayStats *);
+    bool (*display_metrics)(InfernoDisplayMetricsV1 *, size_t);
     void (*input_touch)(int32_t, int32_t, bool);
     void (*input_function_key)(uint32_t, bool);
     bool (*net_link_up)(void);
@@ -116,6 +122,7 @@ static bool load_engine(void)
     resolve((void **)&E.bql_unlock, "bql_unlock", false);
     resolve((void **)&E.shutdown_request, "qemu_system_shutdown_request", false);
     resolve((void **)&E.display_stats, "inferno_display_stats", false);
+    resolve((void **)&E.display_metrics, "inferno_display_metrics_read_v1", false);
     resolve((void **)&E.net_link_up, "inferno_net_link_up", false);
     resolve((void **)&E.battery_set, "inferno_battery_set", false);
     resolve((void **)&E.haptics_read, "inferno_haptics_read", false);
@@ -223,7 +230,25 @@ static void *vm_main(void *arg)
 /* ---- the picture ---- */
 
 static pthread_mutex_t window_lock = PTHREAD_MUTEX_INITIALIZER;
-static ANativeWindow *window;
+/* JNI owns requested_window; only render_main owns window and its EGL context.
+ * Never wait on a graphics driver while holding window_lock or QEMU's BQL. */
+static ANativeWindow *requested_window, *window;
+static uint64_t requested_serial, active_serial;
+static atomic_uint screen_width, screen_height;
+static atomic_int renderer_requested, renderer_actual;
+static atomic_ullong host_frames, read_calls, read_wall_ns, render_cpu_ns, present_wall_ns;
+static atomic_ullong upload_bytes, context_creates, fallback_count;
+static atomic_ullong swizzle_cpu_ns, window_wait_ns, surface_changes;
+static pthread_mutex_t graphics_info_lock = PTHREAD_MUTEX_INITIALIZER;
+static char graphics_reason[256], gpu_vendor[128], gpu_renderer[192], gpu_version[128];
+static EmberGL gl;
+static bool gl_open, frame_valid;
+static unsigned recovery_count;
+static uint32_t frame_generation;
+static uint64_t clock_ns(clockid_t clock) {
+    struct timespec ts; clock_gettime(clock, &ts);
+    return (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
+}
 static bool window_fresh;          /* the window has not seen a whole frame yet */
 static uint32_t window_w, window_h; /* the geometry the window was given */
 
@@ -261,7 +286,7 @@ static inline void swizzle_row(uint32_t *restrict dst, const uint32_t *restrict 
     }
 }
 
-/* Called with window_lock held. */
+/* Render thread only. */
 static void present(void)
 {
     if (window == NULL || frame == NULL || frame_w == 0 || frame_h == 0) return;
@@ -286,7 +311,10 @@ static void present(void)
      * buffer when the one it hands out does not hold the previous frame.
      */
     ANativeWindow_Buffer buf;
-    if (ANativeWindow_lock(window, &buf, &dirty) != 0) return;
+    uint64_t wait_start=clock_ns(CLOCK_MONOTONIC);
+    int locked=ANativeWindow_lock(window, &buf, &dirty);
+    atomic_fetch_add(&window_wait_ns, clock_ns(CLOCK_MONOTONIC)-wait_start);
+    if (locked != 0) return;
     if ((uint32_t)buf.width != frame_w || (uint32_t)buf.height != frame_h) {
         dirty = (ARect){0, 0, buf.width < (int32_t)frame_w ? buf.width : (int32_t)frame_w,
                         buf.height < (int32_t)frame_h ? buf.height : (int32_t)frame_h};
@@ -297,15 +325,18 @@ static void present(void)
     int32_t y1 = dirty.bottom > (int32_t)frame_h ? (int32_t)frame_h : dirty.bottom;
     if (x1 > buf.width) x1 = buf.width;
     if (y1 > buf.height) y1 = buf.height;
+    uint64_t swizzle_start=clock_ns(CLOCK_THREAD_CPUTIME_ID);
     for (int32_t row = y0; row < y1; row++) {
         const uint32_t *src = (const uint32_t *)(frame + (size_t)row * frame_w * 4) + x0;
         uint32_t *dst = (uint32_t *)buf.bits + (size_t)row * (size_t)buf.stride + x0;
         swizzle_row(dst, src, (uint32_t)(x1 - x0));
     }
-    ANativeWindow_unlockAndPost(window);
+    atomic_fetch_add(&swizzle_cpu_ns, clock_ns(CLOCK_THREAD_CPUTIME_ID)-swizzle_start);
+    if (ANativeWindow_unlockAndPost(window) != 0) return;
     window_fresh = false;
     pending = false;
     atomic_fetch_add(&fps_frames, 1);
+    atomic_fetch_add(&host_frames, 1);
 }
 
 static void sleep_ns(long ns)
@@ -314,33 +345,142 @@ static void sleep_ns(long ns)
     while (nanosleep(&ts, &ts) != 0 && errno == EINTR) {}
 }
 
+static void close_gl(void) {
+    ember_gl_close(&gl); gl_open = false;
+}
+static void fallback_cpu(const char *reason) {
+    pthread_mutex_lock(&graphics_info_lock);
+    snprintf(graphics_reason, sizeof(graphics_reason), "%s", reason);
+    pthread_mutex_unlock(&graphics_info_lock);
+    LOGE("GLES -> CPU: %s", reason);
+    close_gl(); atomic_store(&renderer_actual, 0);
+    atomic_fetch_add(&fallback_count, 1);
+    window_w = window_h = 0; window_fresh = true;
+}
+static void update_window(void) {
+    pthread_mutex_lock(&window_lock);
+    if (requested_serial == active_serial) { pthread_mutex_unlock(&window_lock); return; }
+    ANativeWindow *next = requested_window;
+    if (next) ANativeWindow_acquire(next);
+    active_serial = requested_serial;
+    atomic_fetch_add(&surface_changes, 1);
+    pthread_mutex_unlock(&window_lock);
+    close_gl();
+    if (window) ANativeWindow_release(window);
+    window = next; window_w = window_h = 0; window_fresh = true;
+}
+static bool open_gl(void) {
+    /* Match the EGL config's RGBA8 native visual. Buffer dimensions remain the
+     * guest dimensions, so Android's compositor scales just as in CPU mode. */
+    if (ANativeWindow_setBuffersGeometry(window, frame_w, frame_h, WINDOW_FORMAT_RGBA_8888)) {
+        fallback_cpu("ANativeWindow_setBuffersGeometry"); return false;
+    }
+    if (!ember_gl_open(&gl, window, false, frame_w, frame_h)) {
+        char error[192]; snprintf(error, sizeof(error), "%s", gl.error);
+        fallback_cpu(error); return false;
+    }
+    gl_open = true; atomic_fetch_add(&context_creates, 1);
+    pthread_mutex_lock(&graphics_info_lock);
+    snprintf(gpu_vendor, sizeof(gpu_vendor), "%s", gl.vendor);
+    snprintf(gpu_renderer, sizeof(gpu_renderer), "%s", gl.renderer);
+    snprintf(gpu_version, sizeof(gpu_version), "%s", gl.version);
+    pthread_mutex_unlock(&graphics_info_lock);
+    window_w = frame_w; window_h = frame_h;
+    LOGI("GLES3: %s / %s / %s", gl.vendor, gl.renderer, gl.version);
+    return true;
+}
+static void render_tick(void) {
+    if (atomic_load(&vm_state) != 2) return;
+    update_window();
+    FrameInfo info;
+    uint64_t read_start = clock_ns(CLOCK_MONOTONIC);
+    FrameResult r = E.display_read(frame, frame_size, &info);
+    atomic_fetch_add(&read_calls, 1);
+    atomic_fetch_add(&read_wall_ns, clock_ns(CLOCK_MONOTONIC)-read_start);
+    if (r == FRAME_RESIZE) {
+        if (!info.width || !info.height || info.width > 16384 || info.height > 16384) return;
+        size_t need = (size_t)info.width * info.height * 4;
+        uint8_t *grown = realloc(frame, need);
+        if (grown) {
+            frame = grown; frame_size = need; frame_valid = false;
+            frame_w = info.width; frame_h = info.height;
+            atomic_store(&screen_width, frame_w); atomic_store(&screen_height, frame_h);
+            window_fresh = true;
+        }
+        return; /* Next read supplies a complete frame, never upload uninitialized bytes. */
+    }
+    if (r == FRAME_OK) {
+        if (!info.width || !info.height || info.stride != info.width*4 ||
+            (uint64_t)info.stride*info.height > frame_size ||
+            info.x > info.width || info.y > info.height ||
+            info.w > info.width-info.x || info.h > info.height-info.y) return;
+        if (frame_w != info.width || frame_h != info.height || frame_generation != info.generation) {
+            pending=false;
+            frame_w=info.width; frame_h=info.height; frame_generation=info.generation;
+            atomic_store(&screen_width, frame_w); atomic_store(&screen_height, frame_h);
+            window_fresh=true; gl.full_upload=true;
+        }
+        frame_valid=true;
+        add_damage(info.x, info.y, info.w, info.h);
+    }
+    if (!window || !frame_valid || (!pending && !window_fresh)) return;
+    uint64_t cpu_start=clock_ns(CLOCK_THREAD_CPUTIME_ID), wall_start=clock_ns(CLOCK_MONOTONIC);
+    if (atomic_load(&renderer_actual) == 1) {
+        if (gl_open && (window_w != frame_w || window_h != frame_h)) close_gl();
+        if (gl_open || open_gl()) {
+            if (window_fresh) gl.full_upload=true;
+            uint64_t bytes=0;
+            bool ok=ember_gl_draw(&gl, frame, frame_size, frame_w, frame_h, frame_w*4,
+                pending ? pend_x0 : 0, pending ? pend_y0 : 0,
+                pending ? pend_x1-pend_x0 : frame_w, pending ? pend_y1-pend_y0 : frame_h, &bytes);
+            atomic_fetch_add(&upload_bytes, bytes);
+            if (ok) ok=ember_gl_swap(&gl);
+            if (ok) {
+                window_fresh=false; pending=false;
+                atomic_fetch_add(&fps_frames, 1); atomic_fetch_add(&host_frames, 1);
+            } else {
+                char reason[192]; snprintf(reason, sizeof(reason), "%s", gl.error);
+                close_gl(); window_fresh=true;
+                /* One context recreation per session; persistent errors select CPU. */
+                if (recovery_count++ >= 1) fallback_cpu(reason);
+                else LOGE("GLES context retry: %s", reason);
+            }
+        }
+    }
+    if (atomic_load(&renderer_actual) == 0) present();
+    atomic_fetch_add(&render_cpu_ns, clock_ns(CLOCK_THREAD_CPUTIME_ID)-cpu_start);
+    atomic_fetch_add(&present_wall_ns, clock_ns(CLOCK_MONOTONIC)-wall_start);
+}
+
+static bool vsync_ready;
+static AChoreographer *choreographer;
+static void on_vsync(int64_t frame_time, void *data) {
+    vsync_ready=true;
+    if (atomic_load(&render_running)) AChoreographer_postFrameCallback64(choreographer, on_vsync, NULL);
+}
 static void *render_main(void *arg)
 {
-    while (atomic_load(&render_running)) {
-        if (atomic_load(&vm_state) != 2) { sleep_ns(20 * 1000 * 1000); continue; }
-
-        FrameInfo info;
-        FrameResult r = E.display_read(frame, frame_size, &info);
-        pthread_mutex_lock(&window_lock);
-        if (r == FRAME_RESIZE) {
-            size_t need = (size_t)info.width * info.height * 4;
-            uint8_t *grown = realloc(frame, need);
-            if (grown != NULL) {
-                frame = grown;
-                frame_size = need;
-                memset(frame, 0, need);
-                frame_w = info.width;
-                frame_h = info.height;
-                LOGI("экран гостя %ux%u", frame_w, frame_h);
-            }
-            pthread_mutex_unlock(&window_lock);
-            continue; /* the next read copies the whole screen */
+    ALooper_prepare(ALOOPER_PREPARE_ALLOW_NON_CALLBACKS);
+    choreographer=AChoreographer_getInstance();
+    if (choreographer) AChoreographer_postFrameCallback64(choreographer, on_vsync, NULL);
+    uint64_t next_tick=clock_ns(CLOCK_MONOTONIC);
+    while (atomic_load(&render_running) && atomic_load(&vm_state) != 3) {
+        if (choreographer) {
+            ALooper_pollOnce(100, NULL, NULL, NULL);
+            if (!vsync_ready) continue;
+            vsync_ready=false;
+        } else {
+            /* Absolute pacing: work does not add another 16.7ms to every frame. */
+            uint64_t now=clock_ns(CLOCK_MONOTONIC);
+            if (now < next_tick) { sleep_ns((long)(next_tick-now)); }
+            next_tick=clock_ns(CLOCK_MONOTONIC)+16666667ULL;
         }
-        if (r == FRAME_OK) add_damage(info.x, info.y, info.w, info.h);
-        present();
-        pthread_mutex_unlock(&window_lock);
-        sleep_ns(1000 * 1000 * 1000 / 60);
+        render_tick();
     }
+    close_gl();
+    if (window) { ANativeWindow_release(window); window=NULL; }
+    /* The safety latch may be cleared only after driver teardown completed. */
+    atomic_store(&render_running, false);
     return NULL;
 }
 
@@ -372,14 +512,14 @@ static void *haptics_main(void *arg)
 
 /* ---- JNI ---- */
 
-#define FN(name) Java_org_lighttouch_inferno_Engine_##name
+#define FN(name) Java_dev_embervm_android_Engine_##name
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *reserved)
 {
     jvm = vm;
     JNIEnv *env;
     if ((*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_6) != JNI_OK) return JNI_ERR;
-    jclass c = (*env)->FindClass(env, "org/lighttouch/inferno/Engine");
+    jclass c = (*env)->FindClass(env, "dev/embervm/android/Engine");
     if (c == NULL) return JNI_ERR;
     engine_class = (*env)->NewGlobalRef(env, c);
     on_exit_method = (*env)->GetStaticMethodID(env, c, "onVmExit", "(I)V");
@@ -461,6 +601,9 @@ JNIEXPORT jboolean JNICALL FN(nativeStart)(JNIEnv *env, jclass cls, jobjectArray
 
 /* 0 idle, 1 starting, 2 running, 3 stopped */
 JNIEXPORT jint JNICALL FN(nativeState)(JNIEnv *env, jclass cls) { return atomic_load(&vm_state); }
+JNIEXPORT jboolean JNICALL FN(nativeRendererStopped)(JNIEnv *env, jclass cls) {
+    return !atomic_load(&render_running);
+}
 
 JNIEXPORT void JNICALL FN(nativeRequestShutdown)(JNIEnv *env, jclass cls)
 {
@@ -469,28 +612,54 @@ JNIEXPORT void JNICALL FN(nativeRequestShutdown)(JNIEnv *env, jclass cls)
 
 JNIEXPORT void JNICALL FN(nativeSetSurface)(JNIEnv *env, jclass cls, jobject surface)
 {
+    ANativeWindow *next = surface ? ANativeWindow_fromSurface(env, surface) : NULL;
     pthread_mutex_lock(&window_lock);
-    if (window != NULL) {
-        ANativeWindow_release(window);
-        window = NULL;
-    }
-    if (surface != NULL) {
-        window = ANativeWindow_fromSurface(env, surface);
-        window_w = window_h = 0;
-        window_fresh = true;
-    }
+    if (requested_window) ANativeWindow_release(requested_window);
+    requested_window=next; requested_serial++;
     pthread_mutex_unlock(&window_lock);
-    if (surface != NULL && atomic_load(&vm_state) == 2) E.display_invalidate();
 }
 
-/* {width, height} of the guest's screen, 0 while unknown. */
 JNIEXPORT jintArray JNICALL FN(nativeScreenSize)(JNIEnv *env, jclass cls)
 {
-    pthread_mutex_lock(&window_lock);
-    jint size[2] = {(jint)frame_w, (jint)frame_h};
-    pthread_mutex_unlock(&window_lock);
-    jintArray out = (*env)->NewIntArray(env, 2);
+    jint size[2] = {(jint)atomic_load(&screen_width), (jint)atomic_load(&screen_height)};
+    jintArray out=(*env)->NewIntArray(env, 2);
     (*env)->SetIntArrayRegion(env, out, 0, 2, size);
+    return out;
+}
+
+/* Only configured while idle; restore uses the default CPU backend explicitly. */
+JNIEXPORT void JNICALL FN(nativeConfigureRenderer)(JNIEnv *env, jclass cls, jint backend) {
+    if (atomic_load(&vm_state) != 0) return;
+    int selected = backend == 1 ? 1 : 0;
+    atomic_store(&renderer_requested, selected); atomic_store(&renderer_actual, selected);
+}
+JNIEXPORT jlongArray JNICALL FN(nativeGraphicsMetrics)(JNIEnv *env, jclass cls) {
+    InfernoDisplayMetricsV1 m={0};
+    if (E.display_metrics) E.display_metrics(&m, sizeof(m));
+    jlong v[151]={0};
+    v[0]=atomic_load(&host_frames); v[1]=atomic_load(&read_calls);
+    v[2]=atomic_load(&read_wall_ns); v[3]=atomic_load(&render_cpu_ns);
+    v[4]=atomic_load(&present_wall_ns); v[5]=atomic_load(&upload_bytes);
+    v[6]=atomic_load(&context_creates); v[7]=atomic_load(&fallback_count);
+    v[8]=m.version; v[9]=m.pixman_cpu_ns; v[10]=m.copy_cpu_ns; v[11]=m.copy_wait_ns;
+    v[12]=m.main_cpu_ns; v[13]=m.presents; v[14]=m.refreshes;
+    v[15]=m.gap_count; v[16]=m.gap_sum_ns; v[17]=m.gap_max_ns; v[18]=m.copy_bytes;
+    v[19]=atomic_load(&renderer_actual);
+    for (int i=0; i<128; i++) v[20+i]=m.gap_hist[i];
+    v[148]=atomic_load(&swizzle_cpu_ns); v[149]=atomic_load(&window_wait_ns);
+    v[150]=atomic_load(&surface_changes);
+    jlongArray out=(*env)->NewLongArray(env, 151);
+    (*env)->SetLongArrayRegion(env, out, 0, 151, v); return out;
+}
+JNIEXPORT jobjectArray JNICALL FN(nativeGraphicsInfo)(JNIEnv *env, jclass cls) {
+    jobjectArray out=(*env)->NewObjectArray(env, 4, (*env)->FindClass(env, "java/lang/String"), NULL);
+    pthread_mutex_lock(&graphics_info_lock);
+    const char *values[]={graphics_reason, gpu_vendor, gpu_renderer, gpu_version};
+    for (int i=0; i<4; i++) {
+        jstring value=(*env)->NewStringUTF(env, values[i]);
+        (*env)->SetObjectArrayElement(env, out, i, value); (*env)->DeleteLocalRef(env, value);
+    }
+    pthread_mutex_unlock(&graphics_info_lock);
     return out;
 }
 
@@ -527,4 +696,55 @@ JNIEXPORT jlongArray JNICALL FN(nativeStats)(JNIEnv *env, jclass cls)
     jlongArray out = (*env)->NewLongArray(env, 2);
     (*env)->SetLongArrayRegion(env, out, 0, 2, v);
     return out;
+}
+
+/* Restore USB host. These are bridge helpers; the QEMU engine is unchanged. */
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <poll.h>
+#include <stddef.h>
+#define UNIX_JNI(name) Java_dev_embervm_android_restore_NativeUnix_##name
+JNIEXPORT jint JNICALL UNIX_JNI(nativeListenUnix)(JNIEnv *env, jclass cls, jstring path) {
+    (void)cls;
+    const char *text = (*env)->GetStringUTFChars(env, path, NULL);
+    if (!text) return -ENOMEM;
+    struct sockaddr_un addr = { .sun_family = AF_UNIX };
+    size_t len = strlen(text);
+    if (len >= sizeof(addr.sun_path)) {
+        (*env)->ReleaseStringUTFChars(env, path, text); return -ENAMETOOLONG;
+    }
+    memcpy(addr.sun_path, text, len + 1);
+    (*env)->ReleaseStringUTFChars(env, path, text);
+    int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+    if (fd < 0) return -errno;
+    /* Caller owns this private cache path and ensures no VM is running. */
+    unlink(addr.sun_path);
+    if (bind(fd, (struct sockaddr *)&addr, offsetof(struct sockaddr_un, sun_path) + len + 1) || listen(fd, 1)) {
+        int saved = errno; close(fd); return -saved;
+    }
+    return fd;
+}
+JNIEXPORT jint JNICALL UNIX_JNI(nativeAccept)(JNIEnv *env, jclass cls, jint fd, jint timeout) {
+    (void)env; (void)cls;
+    struct pollfd p = { .fd = fd, .events = POLLIN };
+    int n;
+    do { n = poll(&p, 1, timeout); } while (n < 0 && errno == EINTR);
+    if (n == 0) return -2;
+    if (n < 0) return -errno;
+    int peer = accept4(fd, NULL, NULL, SOCK_CLOEXEC);
+    if (peer < 0) return -errno;
+    /* Bound a blocked write too; Kotlin bounds reads with poll. */
+    struct timeval tv = { .tv_sec = 60 };
+    setsockopt(peer, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
+    return peer;
+}
+JNIEXPORT jboolean JNICALL UNIX_JNI(nativePoll)(JNIEnv *env, jclass cls, jint fd, jint timeout) {
+    (void)env; (void)cls;
+    struct pollfd p = { .fd = fd, .events = POLLIN };
+    int n;
+    do { n = poll(&p, 1, timeout); } while (n < 0 && errno == EINTR);
+    return n != 0; /* HUP/ERR wake read, which reports EOF/error. */
+}
+JNIEXPORT void JNICALL UNIX_JNI(nativeShutdown)(JNIEnv *env, jclass cls, jint fd) {
+    (void)env; (void)cls; shutdown(fd, SHUT_RDWR);
 }

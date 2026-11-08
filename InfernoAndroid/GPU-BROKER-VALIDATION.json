@@ -1,0 +1,123 @@
+{
+  "version": "0.7.0-gpubroker",
+  "versionCode": 17,
+  "date_utc": "2026-11-06",
+  "branch": "codex/guest-gpu-bridge",
+  "base_commit": "80d1bf4",
+  "full_guest_gpu_acceleration_complete": false,
+  "ordinary_ios_app_integration_verified": false,
+  "android_broker_runtime_verified": false,
+  "app_store_sandbox_verified": false,
+  "prior_android_surface_evidence": "gpu-bridge/SURFACE-VALIDATION.json (0.6.0, not a broker test)",
+  "unit_tests": {
+    "tests": 100,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lint": {
+    "errors": 0,
+    "warnings": 23
+  },
+  "native_tests": "protocol + broker auth/framing/replay/fragmentation/deadlines/ownership + GL executor/presentation PASS",
+  "sanitizers": "ASan+UBSan native and complete broker integration PASS; leak detection disabled for Mesa",
+  "jni": "broker client -> Unix broker -> mailbox -> actual desktop JVM/JNI wrapper -> Mesa, 316 commands + 14 presentation stats, cancellation and existing-file refusal PASS",
+  "boot_monitor_tests": 12,
+  "legacy_linux_regressions": "direct offscreen/present/legacy PASS",
+  "guest_binary_reproducibility": {
+    "deterministic_guest_helpers_verified": true,
+    "sha256": {
+      "eagl-present-probe-ios": "6bce64857fee456d839e66b6d047357170d96f4b4726868c421f22c8a10da10b",
+      "eagl-api-probe-ios": "d70d98b480220a0ac2d40ad2255ce9d8ccc372a427da891e4e30cd4a0a8d9e74",
+      "libEmberGLES.dylib": "a2baaf7d15cd9bf11ec459b83673ea902d753ba4d72f8e15db8bca2d1f9eb753",
+      "broker-launcher-ios": "f8e40067e34282e0013e15dc85893190240e2ccb5bafc33f82b46fd858c0ed8d",
+      "broker-client-ios": "8937514de73dcb996db1e00c334f6a8aa7ce5e5616dc67a790e6b6088be1f81d",
+      "gles-api-probe-ios": "c1a53242cca450858791d0165ebd89e97a1ca42b5ee24e723f397c1a5b58345e"
+    }
+  },
+  "real_ios_release_kernel_probe": {
+    "engine_source": "b76fa575831d94a80db169ffb3c76d9094a648bd",
+    "guest_memory": "2G",
+    "guest_os_image_present": false,
+    "start_restore_sent": false,
+    "usb_accepted": false,
+    "state": "gpu_commands_verified",
+    "guest_command_roundtrip": true,
+    "guest_readback_verified": true,
+    "guest_registry": [],
+    "guest_graphics_driver_implemented": false,
+    "android_adreno_tested": false,
+    "host_backend": [
+      "Mesa / llvmpipe (LLVM 19.1.7, 256 bits) / OpenGL ES 3.2 Mesa 25.0.7-2+deb13u1"
+    ],
+    "gpu_commands": 316,
+    "gles_api": {
+      "calls": 1262,
+      "batches": 85,
+      "draws": 64,
+      "shader_compiles": 7,
+      "scope": "experimental GLES2 subset, no system-wide integration",
+      "checks": 40
+    },
+    "eagl_offscreen_adapter_verified": true,
+    "headless_presentation": {
+      "frames": 60,
+      "window_frames": 0,
+      "sample_pixels": 240,
+      "cpu_upload_bytes": 0,
+      "android_surface_verified": false
+    },
+    "broker": {
+      "uid": 501,
+      "gid": 501,
+      "raw_read_denied": true,
+      "raw_write_denied": true,
+      "forwarded": 316,
+      "client_exit": 0,
+      "app_store_sandbox_verified": false
+    },
+    "elapsed_seconds": 48,
+    "qemu_exit": 0,
+    "root_header_and_tail_sha256_before": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+    "root_header_and_tail_sha256_after": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+    "root_sentinel_preserved": true,
+    "root_physical_bytes": 131072,
+    "filesystem_patches_verified": false,
+    "first_ios_boot_verified": false
+  },
+  "apk": {
+    "sha256": "c2e5b636e9bc8bd3ce2dfc776c34522d11a356fa13d6c9ac04b2b51182dbf493",
+    "bytes": 37703532,
+    "native_sha256": {
+      "lib/arm64-v8a/libandroidx.graphics.path.so": "41e9a793c43a0f4fddb19e33f346bace464f30f888ba7b9eaf96294ea115bfb6",
+      "lib/arm64-v8a/libember_guest_gpu_probe.so": "a22ac5ebd4d0680067556716e080117e1de071fc8c90fdeb325ac705a31cdde2",
+      "lib/arm64-v8a/libinferno_jni.so": "78c4325ba9536a4abcf27555f5de9bed22c95ec0ddd921fa7e1313f11139a824",
+      "lib/arm64-v8a/libqemu-aarch64-softmmu.so": "9def35821710e4cd50bb1da3bfed565a06931af48632a92f58645d5e7d9976e8"
+    },
+    "elf_load_alignment_16k": true,
+    "guest_hashes": {
+      "eagl-present-probe-ios": "6bce64857fee456d839e66b6d047357170d96f4b4726868c421f22c8a10da10b",
+      "eagl-api-probe-ios": "d70d98b480220a0ac2d40ad2255ce9d8ccc372a427da891e4e30cd4a0a8d9e74",
+      "libEmberGLES.dylib": "a2baaf7d15cd9bf11ec459b83673ea902d753ba4d72f8e15db8bca2d1f9eb753",
+      "broker-launcher-ios": "f8e40067e34282e0013e15dc85893190240e2ccb5bafc33f82b46fd858c0ed8d",
+      "broker-client-ios": "8937514de73dcb996db1e00c334f6a8aa7ce5e5616dc67a790e6b6088be1f81d"
+    },
+    "client_empty_entitlements_verified": true,
+    "engine_and_android_native_libraries_unchanged": true,
+    "signature_certificate_sha256": "b90496cadbd15120cf72ebb73fa2e29496222ba570a125886967a253e75707ae"
+  },
+  "failures_reproduced": [
+    {
+      "attempt": 1,
+      "error": "errno=2 creating /var/run Unix socket",
+      "reason": "path unavailable in restore ramdisk"
+    },
+    {
+      "attempt": 2,
+      "error": "stage=directory errno=30 (EROFS)",
+      "reason": "restore root read-only",
+      "resolution": "signed stock mount_tmpfs, private root-owned directory on disposable 1MiB tmpfs at /mnt9; no APFS mounted"
+    }
+  ],
+  "actual_guest_console_kotlin_verifier": "PASS compiled Android GpuBrokerEvidence consumed final real iOS CR CR LF console and 316 host commands"
+}

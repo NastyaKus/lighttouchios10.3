@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "date_utc": "2026-11-06",
+  "status": "PARTIAL_SYSTEM_GPU_IMPLEMENTATION",
+  "branch": "codex/system-gpu-18a5351d",
+  "local_base": "c435b4165623c1c56016c6930c31f391a35e71bb",
+  "build": "18A5351d",
+  "apk_enables_system_gpu": false,
+  "jvm": {
+    "tests": 132,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "python": {
+    "binary_range_toolchain_tests": 10,
+    "evidence_parser_tests": 5,
+    "legacy_process_ordering_tests": 12,
+    "failures": 0
+  },
+  "android_build": {
+    "assembleDebug": "passed",
+    "lintDebug": "passed",
+    "guest_arm64e_code": "Linux-only compile/runtime check, not packaged or activated"
+  },
+  "host_surface": {
+    "backend": "Mesa llvmpipe GLES3",
+    "frame_size": [
+      828,
+      1792
+    ],
+    "dirty_rgba_bgra_stride_readback_gpu_blit": "passed",
+    "ASan_UBSan": "passed, external Mesa leak detection disabled",
+    "android_adreno_new_pool_tested": false
+  },
+  "transport": {
+    "C_crypto_vectors": "passed",
+    "C_to_Kotlin_authenticated_upload_bytes": 2097152,
+    "system_vm_integration": false,
+    "native_C_Kotlin_JNI_real_ES3_readback_bytes": 5935104,
+    "large_readback_SHA256": "passed"
+  },
+  "own_loader": {
+    "state": "own_loader_verified",
+    "versioned_arm64e_loaded": true,
+    "dependency_loaded": true,
+    "wire_crypto_verified": true,
+    "pointer_auth_ia_zero_verified": false,
+    "native_arm64e_abi_verified": false,
+    "stock_system_unmount_verified": false,
+    "stock_system_unmount_errno": 16,
+    "root_sentinel_preserved": true
+  },
+  "native_eagl": {
+    "state": "system_environment_reported",
+    "runtime_cache_uuid": "11ad39c9e3c93067a3377287744fdcb5",
+    "stock_system_cache_verified": true,
+    "native_frameworks_available": 6,
+    "native_eagl_class_present": true,
+    "native_eagl_api3_object": false,
+    "native_eagl_api3_verified": false,
+    "native_eagl_interposition_verified": true,
+    "backboardd_execution_verified": false,
+    "stock_system_unmount_verified": false,
+    "stock_system_unmount_errno": 16,
+    "root_sentinel_preserved": true
+  },
+  "backboardd": {
+    "state": "failed",
+    "error": "Backboardd exited without the dependency constructor; see console.log",
+    "backboardd_exit_reason_namespace": 9,
+    "backboardd_exit_reason_code": 8,
+    "backboardd_exit_reason_flags": 0,
+    "stock_system_unmount_verified": true,
+    "stock_system_unmount_errno": 0,
+    "root_sentinel_preserved": true
+  },
+  "backboardd_reason": "SIGKILL before dylib constructor: OS_REASON_EXEC / EXEC_EXIT_REASON_SECURITY_POLICY (9/8); exact MAC module not identified",
+  "pac": "Inferno apple-gxf TCG defaults to pauth-noop=true. Opcode success and versioned Mach-O do not prove authentication.",
+  "source_storage": {
+    "stock_system_backing": "read-only NBD",
+    "scratch_system": "new disposable QCOW2, 128 MiB physical write budget",
+    "user_installed_root_attached": false,
+    "Apple_inputs_in_repository": false
+  },
+  "normal_launch_engine_sha256": "9def35821710e4cd50bb1da3bfed565a06931af48632a92f58645d5e7d9976e8",
+  "system_gpu_verified": false,
+  "first_ios_boot_this_profile_verified": false,
+  "SpringBoard_Settings_gpu_verified": false,
+  "GarageBand_verified": false,
+  "remaining": [
+    "Native iOS API3/GLI frontend and complete used private entrypoint ABI",
+    "Guest IOSurface CPU/GPU coherence and final WindowServer surface binding",
+    "Root broker/NCM and activation of service in ordinary VmService",
+    "Transactional install into copied APFS, profile UI and rollback",
+    "Resolve/validate native backboardd sandbox-profile activation in its normal launch environment",
+    "Android visual checks and >=20% p95 improvement in both agreed scenes"
+  ],
+  "native_host_backend": {
+    "implemented": true,
+    "android_arm64_compile": "passed",
+    "linux_backend": "Mesa llvmpipe, software renderer",
+    "indexed_full_panel": [
+      828,
+      1792
+    ],
+    "EGLImage_shared_storage_and_independent_samplers": "passed",
+    "ASan_UBSan": "passed, external Mesa leak detection disabled",
+    "system_service": "implemented, separate :system_gpu process, not called by normal VmService",
+    "guest_GLI_frontend": "not implemented",
+    "Android_Adreno_execution_of_new_backend": false,
+    "full_GLES_API_compliance": false
+  },
+  "own_entitlement_control": {
+    "with_exact_backboardd_entitlements": "kernel exec policy rejection 9/8 before main",
+    "with_only_seatbelt_profiles_removed_from_own_executable": "main entered; Foundation and StudyLog loaded; launcher controlled stop after 20s",
+    "real_backboardd_entitlements_modified": false,
+    "named_profile_assignment_cause_fully_identified": false
+  }
+}

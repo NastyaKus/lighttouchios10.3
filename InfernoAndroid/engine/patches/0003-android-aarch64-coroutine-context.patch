@@ -1,0 +1,89 @@
+--- a/util/coroutine-sigaltstack.c
++++ b/util/coroutine-sigaltstack.c
+@@ -28,6 +28,14 @@
+ #include "qemu/osdep.h"
+ #include <pthread.h>
+ #include "qemu/coroutine_int.h"
++
++#if defined(__ANDROID__) && defined(__aarch64__)
++#include "coroutine-android-aarch64.h"
++#define sigjmp_buf QemuAndroidJmpBuf
++#define sigsetjmp(env, savemask) qemu_android_fiber_setjmp(env)
++#define siglongjmp(env, value) qemu_android_fiber_longjmp(env, value)
++#endif
++
+ 
+ #ifdef CONFIG_SAFESTACK
+     #error "SafeStack is not compatible with code run in alternate signal stacks"
+--- /dev/null
++++ b/util/coroutine-android-aarch64.h
+@@ -0,0 +1,69 @@
++/* SPDX-License-Identifier: LGPL-2.1-or-later
++ * Android AArch64 coroutine register context.
++ * Adapted from AlexZorzi/Inferno-Android @ 228965f4746eb022592615c4fc9a69f4896ead61,
++ * util/coroutine-sigaltstack.c. This is a private fiber primitive, not an
++ * interposition of bionic's setjmp/longjmp and not a process-wide PAC change.
++ *
++ * bionic siglongjmp authenticates its saved return address with autiasp.
++ * The Android native tombstone showed that check faulting while QEMU resumed
++ * a coroutine created on another thread. Save the AAPCS64 callee-saved state
++ * directly, as the Android port does. Keep Android's thread-specific x18/SCS
++ * register on the current thread; never restore it from another coroutine.
++ */
++#ifndef QEMU_COROUTINE_ANDROID_AARCH64_H
++#define QEMU_COROUTINE_ANDROID_AARCH64_H
++#include <stdint.h>
++
++typedef uint64_t QemuAndroidJmpBuf[32];
++__attribute__((returns_twice, visibility("hidden")))
++int qemu_android_fiber_setjmp(QemuAndroidJmpBuf env);
++__attribute__((noreturn, visibility("hidden")))
++void qemu_android_fiber_longjmp(QemuAndroidJmpBuf env, int value);
++
++__asm__(
++".text\n"
++".p2align 4\n"
++".global qemu_android_fiber_setjmp\n"
++".hidden qemu_android_fiber_setjmp\n"
++".type qemu_android_fiber_setjmp, %function\n"
++"qemu_android_fiber_setjmp:\n"
++"    hint #34\n" /* BTI c, architectural NOP on older cores */
++"    mov x1, sp\n"
++"    stp x19, x20, [x0, #0]\n"
++"    stp x21, x22, [x0, #16]\n"
++"    stp x23, x24, [x0, #32]\n"
++"    stp x25, x26, [x0, #48]\n"
++"    stp x27, x28, [x0, #64]\n"
++"    stp x29, x30, [x0, #80]\n"
++"    str x1, [x0, #96]\n"
++"    stp d8, d9, [x0, #104]\n"
++"    stp d10, d11, [x0, #120]\n"
++"    stp d12, d13, [x0, #136]\n"
++"    stp d14, d15, [x0, #152]\n"
++"    mov x0, #0\n"
++"    ret\n"
++".size qemu_android_fiber_setjmp, .-qemu_android_fiber_setjmp\n"
++".p2align 4\n"
++".global qemu_android_fiber_longjmp\n"
++".hidden qemu_android_fiber_longjmp\n"
++".type qemu_android_fiber_longjmp, %function\n"
++"qemu_android_fiber_longjmp:\n"
++"    hint #34\n"
++"    ldp x19, x20, [x0, #0]\n"
++"    ldp x21, x22, [x0, #16]\n"
++"    ldp x23, x24, [x0, #32]\n"
++"    ldp x25, x26, [x0, #48]\n"
++"    ldp x27, x28, [x0, #64]\n"
++"    ldp x29, x30, [x0, #80]\n"
++"    ldr x2, [x0, #96]\n"
++"    mov sp, x2\n"
++"    ldp d8, d9, [x0, #104]\n"
++"    ldp d10, d11, [x0, #120]\n"
++"    ldp d12, d13, [x0, #136]\n"
++"    ldp d14, d15, [x0, #152]\n"
++"    cmp w1, #0\n"
++"    csinc w0, w1, wzr, ne\n"
++"    ret\n"
++".size qemu_android_fiber_longjmp, .-qemu_android_fiber_longjmp\n"
++);
++#endif

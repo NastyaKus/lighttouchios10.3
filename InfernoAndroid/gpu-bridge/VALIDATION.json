@@ -1,0 +1,126 @@
+{
+  "goal": "full guest iOS graphics acceleration; not achieved yet",
+  "branch": "codex/guest-gpu-bridge",
+  "base": "0263e24baf49000e9e703e769590f08415f11cb5",
+  "date_utc": "2026-11-05",
+  "real_ios_probe": {
+    "engine_source": "b76fa575831d94a80db169ffb3c76d9094a648bd",
+    "guest_memory": "2G",
+    "guest_os_image_present": false,
+    "start_restore_sent": false,
+    "usb_accepted": false,
+    "state": "gpu_commands_verified",
+    "guest_command_roundtrip": true,
+    "guest_readback_verified": true,
+    "guest_registry": [
+      {
+        "class": "IOAccelerator",
+        "count": 0,
+        "status": 0
+      },
+      {
+        "class": "IOGPU",
+        "count": 0,
+        "status": 0
+      },
+      {
+        "class": "AGXAccelerator",
+        "count": 0,
+        "status": 0
+      },
+      {
+        "class": "AppleParavirtGPU",
+        "count": 0,
+        "status": 0
+      },
+      {
+        "class": "IOSurfaceRoot",
+        "count": 1,
+        "status": 0
+      }
+    ],
+    "guest_graphics_driver_implemented": false,
+    "android_adreno_tested": false,
+    "host_backend": [
+      "Mesa / llvmpipe (LLVM 19.1.7, 256 bits) / OpenGL ES 3.2 Mesa 25.0.7-2+deb13u1"
+    ],
+    "gpu_commands": 7,
+    "guest_iosurface": {
+      "id": 1,
+      "width": 64,
+      "height": 64,
+      "stride": 256,
+      "lock": 0,
+      "unlock": 0,
+      "cpu_mapping_verified": 1
+    },
+    "elapsed_seconds": 8,
+    "qemu_exit": 0,
+    "root_header_and_tail_sha256_before": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+    "root_header_and_tail_sha256_after": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+    "root_sentinel_preserved": true,
+    "root_physical_bytes": 131072,
+    "filesystem_patches_verified": false,
+    "first_ios_boot_verified": false
+  },
+  "host_gpu_execution": "Mesa llvmpipe software; no Adreno execution claimed",
+  "tests": {
+    "protocol": "PASS: golden LE/CRC vector, short/corrupt packets, 20000 malformed frames",
+    "gl_executor": "PASS: readback, bounds, stale handles, NaN, fence, replay",
+    "file_transport": "PASS: roundtrip, existing-file refusal, marker validation",
+    "sanitizers": "ASan+UBSan PASS for protocol/executor and file integration; driver leak detection disabled",
+    "boot_monitor": "3 synthetic process-ordering tests PASS; not hardware coverage",
+    "iosurface": "real guest create, lock, write, unlock/relock/read, unlock PASS",
+    "guest_signature": "entitlements decoded and match checked-in plist; accepted by real research guest",
+    "guest_build_reproducible": "two independent output paths produced byte-identical Mach-O",
+    "android_library": "NDK arm64 compile PASS; 16 KiB ELF alignment; no runtime check"
+  },
+  "guest_probe_sha256": "fbecc22cd41dd2f8f0416e32ab72e4e1521d206eb211cd1c25039548e624d7a2",
+  "android_library_sha256": "287901ead2e8e67aeccadf7166b92f043edfb8b2ba7543687f927c2c972ab326",
+  "limits": [
+    "No standard EAGL/Metal guest frontend or kernel GPU driver",
+    "No CoreAnimation/WindowServer integration",
+    "No GPU-backed IOSurface sharing",
+    "No arbitrary shaders/textures or full GL API",
+    "No installed-system boot or GarageBand test",
+    "Android host executor not integrated in production JNI/UI",
+    "Real Adreno runtime and performance not tested"
+  ],
+  "errors_resolved": [
+    "NULL redefinition in freestanding ABI include",
+    "Raw block-device System Policy denial: explicit entitlements",
+    "IOKit loader path required Versions/A",
+    "IOSurfaceRootUserClient denial: exact entitlement class",
+    "Host-exit/guest-console-flush race: monitor grace period + counter verification",
+    "IOSurface mapping now verified across unlock/lock, no optimized-away same-buffer comparison"
+  ],
+  "signer": {
+    "source": "ProcursusTeam/ldid",
+    "commit": "af86971ae72ec3ed3d0a699107c4e882324c941b",
+    "pinned_source_verified": true
+  },
+  "source_sha256": {
+    "README.md": "f232b9a62db5f3e079225356c69dd5d2a6137e7ecba46a6d5b0b3cc524728828",
+    "bin/guest-probe-ios": "fbecc22cd41dd2f8f0416e32ab72e4e1521d206eb211cd1c25039548e624d7a2",
+    "build-android.sh": "756a4b46b76539690299d0da5d8e87a9e07d72ade71b8b7bd44d452ba7f25aea",
+    "build-ldid.sh": "0f2b0f007108b294e47a7a41bb71763689a2700eede9a6e9712a03aeb849b612",
+    "build.sh": "f60a67a8e572424e662e6de0b402f58da500ef4cfef44282343a95b9417ffbd3",
+    "executor-test.c": "04d2dfcb19efc5db89adaa7c5b896f1315fec2831542e80d016883beae4576a2",
+    "executor.c": "d645a6bc89f90138fbcd62fd631f65c81511cebfc2b1c3e854dbe93172d8cb6e",
+    "executor.h": "31ce732d939c8881a5c651ff3663433d7421c684ab83983eb35ba9985a99ccc3",
+    "file-host.c": "0038e8a4f6094424cea49154b69835fb8d5f676961ddadde8c08761e2b0210b9",
+    "file-host.h": "4ed997f1818be628ceb3689826eda60e649f70660db6be9f76311ac325ef3721",
+    "guest-probe.c": "b579d38fc2ea052554f335c6a9d8b8f511a837c82920ee7864ad92689eae0010",
+    "host-probe.c": "9a520ccd920681ef7723a5cab108d726826fad17b1ff19f90a576ba2572512fe",
+    "integration-test.py": "b934f71d18d670b3cd82b014d3a267341527eddb7311fc7551a80dcfb6b42ff8",
+    "libSystem.tbd": "91114da1ca4aed361baf3de43e0f1533bd073f5239dcc5b01c4bc9a37ead65fa",
+    "probe.entitlements.plist": "142ecf32c5a6ec398095a7bb99b72ffb2ad84c16bc9bd2aa02f76660b2919412",
+    "protocol-test.c": "187ad3dc556186d76d48bef3b1062010238bc37440c300f75cbfc558ba1a6c41",
+    "protocol.c": "b032f1b1ed9d2e47715d7c01d45a708edb1844de2c2057b72461681f3fa36602",
+    "protocol.h": "ae5f5e29d6b0b1fe555cbd18cf803a68a6f3463642184c33ea735c52389f96d8",
+    "session.c": "9f2d49f35fba1e00779774c7e4808bbba6fa459e4af644cc4e0a4808a4a5c301",
+    "session.h": "d6acbc5956c749707bd3287f9bbbfef7eb5332025c67cfa0787ba80ccb3742a3",
+    "test-boot-monitor.py": "5f04bab19ac8a230a5b3849083c2f871818271e04dd73883100f1473372629ae",
+    "test.sh": "6478036362b00055a8cdace6cba52adb8b598968926b254d8224d8b375ef951e"
+  }
+}

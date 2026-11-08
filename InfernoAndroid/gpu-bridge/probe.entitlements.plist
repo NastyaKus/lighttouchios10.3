@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+  <key>platform-application</key><true/>
+  <key>com.apple.private.security.disk-device-access</key><true/>
+  <key>com.apple.private.security.storage.AppleInternal</key><true/>
+  <key>com.apple.private.security.no-container</key><true/>
+  <key>com.apple.security.iokit-user-client-class</key>
+  <array><string>IOSurfaceRootUserClient</string></array>
+</dict></plist>

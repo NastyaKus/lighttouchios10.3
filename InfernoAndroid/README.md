@@ -1,12 +1,23 @@
-# InfernoAndroid
+> Исследовательская ветка guest GPU: [проверенный command bridge и оставшиеся блокеры](gpu-bridge/README.md). Полноценный iOS GPU driver ещё не реализован; обычный APK этот прототип автоматически не включает.
 
-Android-приложение, которое запускает готовый образ iOS 14 (iPhone 11, t8030) на движке
+> Экспериментальная ветка 0.4.0: CPU/GLES3 presentation, profiler, safety fallback и 60-секундные замеры. [Инструкция и границы проверки](GRAPHICS.md). Guest GPU пока программный; рабочая 0.3.1 сохранена отдельно.
+
+# Ember VM
+
+Android-приложение для запуска подготовленного набора iOS 14 (iPhone 11, t8030) и экспериментального восстановления из IPSW на движке
 [MakrSas/Inferno](https://github.com/MakrSas/Inferno) (ветка `ios`, коммит в `engine/build-engine.sh`).
 Образ в приложение не входит: нужен свой набор файлов, собранный по гайду ChefKiss (тот же, что
 использует Inferno на iOS и на компьютере).
 
-Работает только на arm64-телефонах. Эмуляция идёт через TCG, без аппаратной виртуализации, так что
-это медленно: первая загрузка занимает минуты.
+Нужен arm64-телефон с Android 10+. Эмуляция идёт через TCG, без аппаратной виртуализации.
+Восстановление, первоначальная настройка, рабочий стол и повторный запуск подтверждены
+пользователем на одном Android-телефоне с 0.3.1. Графические ограничения и отсутствие
+звука сохраняются. См. [PHONE-BOOT-VERIFIED.md](PHONE-BOOT-VERIFIED.md).
+Снимок исходников и инструкции продолжения: [SOURCE-HANDOFF.md](SOURCE-HANDOFF.md).
+
+Имя приложения — **Ember VM**, пакет — `dev.embervm.android`.
+Мастер «Восстановить из IPSW», входные файлы, этапы и ограничения описаны в [RESTORE.md](RESTORE.md).
+Проверки Linux и обнаруженные ошибки: [VALIDATION.md](VALIDATION.md).
 
 ## Сборка
 
@@ -19,7 +30,8 @@ InfernoAndroid/engine/build-engine.sh      # движок → build/engine/libqe
 
 cd InfernoAndroid
 echo "sdk.dir=/path/to/sdk" > local.properties
-./gradlew :app:assembleDebug               # → app/build/outputs/apk/debug/app-debug.apk
+./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+# → app/build/outputs/apk/debug/app-debug.apk
 ```
 
 Движок берётся из `build/engine/`, другой путь можно задать через `-PengineDir=/path`. Без движка APK
@@ -29,7 +41,7 @@ echo "sdk.dir=/path/to/sdk" > local.properties
 
 ## Файлы образа
 
-Всё лежит в папке приложения `Android/data/org.lighttouch.inferno/files/`, в той же раскладке, что у Inferno на iOS:
+Всё лежит в папке приложения `Android/data/dev.embervm.android/files/`, в той же раскладке, что у Inferno на iOS:
 
 ```
 files/
@@ -51,7 +63,7 @@ files/
 
 Нули при копировании пропускаются, поэтому сырой `root` на 34 ГБ занимает на телефоне столько места,
 сколько в нём реально данных. С компьютера можно копировать и напрямую:
-`adb push InfernoData AppleSEPROM-Cebu-B1 /sdcard/Android/data/org.lighttouch.inferno/files/`.
+`adb push InfernoData AppleSEPROM-Cebu-B1 /sdcard/Android/data/dev.embervm.android/files/`.
 qcow2 всё равно удобнее.
 
 Ядро, дерево устройств и trustcache берутся из `Restore/BuildManifest.plist` (identity `n104ap` с Erase).

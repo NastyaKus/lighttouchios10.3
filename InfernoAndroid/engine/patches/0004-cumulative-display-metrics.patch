@@ -1,0 +1,139 @@
+diff --git a/hw/display/apple_displaypipe_v4.c b/hw/display/apple_displaypipe_v4.c
+index c605e53..eeafe79 100644
+--- a/hw/display/apple_displaypipe_v4.c
++++ b/hw/display/apple_displaypipe_v4.c
+@@ -996,8 +996,13 @@ static void adp_v4_gp_draw(ADPV4GenPipe* genpipe, AddressSpace* dma_as, pixman_i
+             pixman_image_set_transform(image, NULL);
+         }
+ 
++        struct timespec before, after;
++        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &before);
+         pixman_image_composite(PIXMAN_OP_SRC, image, NULL, disp_image, 0, 0, 0, 0, 0, 0, genpipe->state.dest_width,
+                                genpipe->state.dest_height);
++        clock_gettime(CLOCK_THREAD_CPUTIME_ID, &after);
++        inferno_display_note_pixman_cpu((after.tv_sec-before.tv_sec)*1000000000LL +
++                                       after.tv_nsec-before.tv_nsec);
+ 
+         dpy_gfx_update(console, 0, 0, genpipe->state.dest_width, genpipe->state.dest_height);
+     }
+diff --git a/include/ui/inferno-embed.h b/include/ui/inferno-embed.h
+index c90e4fa..603261d 100644
+--- a/include/ui/inferno-embed.h
++++ b/include/ui/inferno-embed.h
+@@ -108,6 +108,19 @@ void inferno_display_stats(InfernoDisplayStats* out);
+  */
+ void inferno_display_note_present(void);
+ 
++/* Optional, cumulative ABI. A read never consumes FPS counters. All times are ns.
++ * Histogram bins are 1 ms wide, final bin includes everything >=127 ms.
++ * main_cpu_ns samples CLOCK_THREAD_CPUTIME_ID on the QEMU main loop, not vCPUs.
++ */
++typedef struct InfernoDisplayMetricsV1 {
++    uint32_t version, size;
++    uint64_t presents, refreshes, pixman_cpu_ns, copy_cpu_ns, copy_wait_ns;
++    uint64_t copy_bytes, main_cpu_ns, gap_count, gap_sum_ns, gap_max_ns;
++    uint64_t gap_hist[128];
++} InfernoDisplayMetricsV1;
++bool inferno_display_metrics_read_v1(InfernoDisplayMetricsV1 *out, size_t size);
++void inferno_display_note_pixman_cpu(uint64_t ns);
++
+ /*
+  * A touch at an absolute position in framebuffer pixels — the emulated panel
+  * wants the finger where it is, not a cursor moved towards it.
+diff --git a/ui/inferno-embed.c b/ui/inferno-embed.c
+index f826b1f..b5fc569 100644
+--- a/ui/inferno-embed.c
++++ b/ui/inferno-embed.c
+@@ -61,6 +61,33 @@ static int64_t  inferno_last_present_ns;
+ static int64_t  inferno_gap_min_ns, inferno_gap_max_ns, inferno_gap_sum_ns;
+ static uint64_t inferno_gap_count;
+ 
++/* qatomic counters also cover pixman before the display listener attaches. */
++static InfernoDisplayMetricsV1 metrics;
++static uint64_t main_cpu_start;
++static uint64_t metric_last_present;
++static uint64_t cpu_ns(void) {
++    struct timespec ts;
++    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
++    return (uint64_t)ts.tv_sec * 1000000000ULL + ts.tv_nsec;
++}
++static void sample_main_cpu(void) {
++    if (main_cpu_start) qatomic_set(&metrics.main_cpu_ns, cpu_ns() - main_cpu_start);
++}
++void inferno_display_note_pixman_cpu(uint64_t ns) {
++    qatomic_add(&metrics.pixman_cpu_ns, ns);
++}
++bool inferno_display_metrics_read_v1(InfernoDisplayMetricsV1 *out, size_t size) {
++    if (!out || size < sizeof(*out)) return false;
++    out->version = 1; out->size = sizeof(*out);
++#define SNAP(field) out->field = qatomic_read(&metrics.field)
++    SNAP(presents); SNAP(refreshes); SNAP(pixman_cpu_ns); SNAP(copy_cpu_ns);
++    SNAP(copy_wait_ns); SNAP(copy_bytes); SNAP(main_cpu_ns); SNAP(gap_count);
++    SNAP(gap_sum_ns); SNAP(gap_max_ns);
++    for (int i=0; i<128; i++) out->gap_hist[i] = qatomic_read(&metrics.gap_hist[i]);
++#undef SNAP
++    return true;
++}
++
+ static void damage_all_locked(InfernoDisplay* d)
+ {
+     if (d->surface == NULL) {
+@@ -116,6 +143,8 @@ static void inferno_refresh(DisplayChangeListener* dcl)
+     InfernoDisplay* d = &inferno_display;
+ 
+     WITH_QEMU_LOCK_GUARD(&d->lock) { inferno_refreshes++; }
++    qatomic_inc(&metrics.refreshes);
++    sample_main_cpu();
+     graphic_hw_update(dcl->con);
+ }
+ 
+@@ -129,6 +158,16 @@ void inferno_display_note_present(void)
+         int64_t now = qemu_clock_get_ns(QEMU_CLOCK_REALTIME);
+ 
+         inferno_presents++;
++        qatomic_inc(&metrics.presents);
++        if (metric_last_present) {
++            uint64_t gap = now - metric_last_present;
++            qatomic_inc(&metrics.gap_count);
++            qatomic_add(&metrics.gap_sum_ns, gap);
++            if (gap > qatomic_read(&metrics.gap_max_ns)) qatomic_set(&metrics.gap_max_ns, gap);
++            qatomic_inc(&metrics.gap_hist[MIN(gap / 1000000ULL, 127)]);
++        }
++        metric_last_present = now;
++        sample_main_cpu();
+         if (inferno_last_present_ns != 0) {
+             int64_t gap = now - inferno_last_present_ns;
+ 
+@@ -180,6 +219,7 @@ void inferno_display_attach(void)
+ 
+     if (d->attached) { return; }
+ 
++    main_cpu_start = cpu_ns();
+     qemu_mutex_init(&d->lock);
+     d->attached = true;
+ 
+@@ -235,7 +275,9 @@ InfernoFrameResult inferno_display_read(void* dst, size_t dst_size, InfernoFrame
+     memset(info, 0, sizeof(*info));
+     if (!d->attached) { return INFERNO_FRAME_NONE; }
+ 
++    uint64_t wait_start = qemu_clock_get_ns(QEMU_CLOCK_REALTIME);
+     QEMU_LOCK_GUARD(&d->lock);
++    qatomic_add(&metrics.copy_wait_ns, qemu_clock_get_ns(QEMU_CLOCK_REALTIME) - wait_start);
+     if (d->surface == NULL) { return INFERNO_FRAME_NONE; }
+ 
+     width  = surface_width(d->surface);
+@@ -270,11 +312,14 @@ InfernoFrameResult inferno_display_read(void* dst, size_t dst_size, InfernoFrame
+     out        = dst;
+     span       = (size_t)(x1 - x0) * 4;
+ 
++    uint64_t copy_start = cpu_ns();
+     for (row = y0; row < y1; row++) {
+         memcpy(out + (size_t)row * info->stride + (size_t)x0 * 4, src + (size_t)row * src_stride + (size_t)x0 * 4,
+                span);
+     }
+ 
++    qatomic_add(&metrics.copy_cpu_ns, cpu_ns() - copy_start);
++    qatomic_add(&metrics.copy_bytes, span * (y1-y0));
+     info->x  = x0;
+     info->y  = y0;
+     info->w  = x1 - x0;

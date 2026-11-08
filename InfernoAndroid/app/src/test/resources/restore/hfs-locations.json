@@ -1,0 +1,14 @@
+{
+  "/System": 10254,
+  "/usr": 10362,
+  "/usr/standalone": 10464,
+  "/usr/standalone/firmware": 10580,
+  "/usr/standalone/firmware/nfrestore": 10692,
+  "/usr/standalone/firmware/nfrestore/firmware": 10806,
+  "/usr/standalone/firmware/nfrestore/firmware/jcop-prod": 10918,
+  "/usr/standalone/firmware/nfrestore/firmware/jcop-prod/JCOP-01.30-006-P.bin": 11032,
+  "/usr/standalone/firmware/nfrestore/firmware/jcop-prod/JCOP-11.04-012.2-P.bin": 11328,
+  "/System/Library": 11628,
+  "/System/Library/LaunchDaemons": 11738,
+  "/System/Library/LaunchDaemons/com.apple.syslogd.plist": 11860
+}

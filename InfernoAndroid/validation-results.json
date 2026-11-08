@@ -1,0 +1,346 @@
+{
+  "version": "0.3.1-dev",
+  "versionCode": 13,
+  "applicationId": "dev.embervm.android",
+  "apk_sha256": "b13b3988a1de19bbd38a3e38e423573270ca67f60de4817a03f4f43af12aec5b",
+  "apk_bytes": 37352338,
+  "engine_base": "b76fa575831d94a80db169ffb3c76d9094a648bd",
+  "additional_engine_patch": "0003-android-aarch64-coroutine-context.patch (unchanged from 0.2.3)",
+  "engine_sha256": "cc31d85ab3881f8d6aaa8a287ca57d29fcb0d9e2c24f481b1df4ba13ebb2a9d3",
+  "jni_unchanged": true,
+  "same_update_certificate": true,
+  "jvm_tests": 73,
+  "suites": [
+    {
+      "name": "dev.embervm.android.SparseCopyTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "dev.embervm.android.VmConfigTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "dev.embervm.android.restore.DiagnosticStreamTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "dev.embervm.android.restore.FormatsTest",
+      "tests": "16",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "dev.embervm.android.restore.ProtocolTest",
+      "tests": "23",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "dev.embervm.android.restore.RestoreAttemptTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "dev.embervm.android.restore.RestoreCheckpointTest",
+      "tests": "18",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "lint": {
+    "Error": 0,
+    "Fatal": 0,
+    "Warning": 23
+  },
+  "native_tests": {
+    "cpus": [
+      "cortex-a57",
+      "max"
+    ],
+    "switches_per_cpu": 100000,
+    "callee_saved_registers": true,
+    "thread_local_x18_preserved": true,
+    "zero_return_value": true,
+    "branch_protected_C": true,
+    "last_run_version": "0.2.3-dev; unchanged Android native libraries through 0.3.1"
+  },
+  "coroutine_switch_calls": "private AArch64 fiber setjmp/longjmp, verified by disassembly",
+  "phone_test_of_fix": "0.3.1 pending: actual System launchd cache schema/write/readback and first normal iOS boot unverified. No Data mount occurs during patches; normal-boot Data unlock remains an independent blocker.",
+  "full_ios_restore_verified": false,
+  "native_libraries": [
+    {
+      "name": "lib/arm64-v8a/libandroidx.graphics.path.so",
+      "sha256": "41e9a793c43a0f4fddb19e33f346bace464f30f888ba7b9eaf96294ea115bfb6",
+      "unchanged_from_0_2_6": true,
+      "unchanged_from_0_2_8": true,
+      "unchanged_from_0_2_9": true
+    },
+    {
+      "name": "lib/arm64-v8a/libinferno_jni.so",
+      "sha256": "533238c21eeb70b3a08d5c21228ec5d3bc2cf41131d652b531823be3ce8e6839",
+      "unchanged_from_0_2_6": true,
+      "unchanged_from_0_2_8": true,
+      "unchanged_from_0_2_9": true
+    },
+    {
+      "name": "lib/arm64-v8a/libqemu-aarch64-softmmu.so",
+      "sha256": "cc31d85ab3881f8d6aaa8a287ca57d29fcb0d9e2c24f481b1df4ba13ebb2a9d3",
+      "unchanged_from_0_2_6": true,
+      "unchanged_from_0_2_8": true,
+      "unchanged_from_0_2_9": true
+    }
+  ],
+  "prior_observed_native_fault": "SIGILL ILL_ILLOPN at libc longjmp+460, opcode d50323bf/autiasp; caller qemu_coroutine_switch",
+  "observed_failure": "0.3.0 phone: all 45 cache sites verified, System clean unmount errno 0, both attempts block inside mount_apfs(Data) /mnt8; first lasted about 10 minutes",
+  "prior_native_fix_phone_observation": "0.2.5 completed restored without prior SIGILL; current failure is guest reboot/halt, not native context switch",
+  "raw_failing_mux_header_in_old_log": false,
+  "mux_receive_reference": "MakrSas/Inferno-iOS 4bc39702871f5a118d96acbad4df7a675ddf14e0 GuestUSB.swift takeMux (no input magic/counter continuity check, echo offset 12)",
+  "certificate_sha256": "b90496cadbd15120cf72ebb73fa2e29496222ba570a125886967a253e75707ae",
+  "confirmed_device_mux_reserved_word": "0xfaceface (successful 0.2.4 headers)",
+  "mux_ack_retirement": "cumulative acknowledgement at offset 14 matching a retained host sequence; offset 12 remains device sequence echo",
+  "first_lost_frame_root_cause": "not established; DWC3 hardware model not covered by fake USB tests",
+  "prior_mux_fix_phone_observation": "0.2.5 completed the system image and firmware transfer; selective mux replay repaired gaps",
+  "stress_tests": {
+    "guest_queue_capacity": 2,
+    "abstract_model_not_actual_TRB_limit": true,
+    "host_data_frames_for_wrap": 65540,
+    "payload_bytes_per_frame": 256,
+    "dropped_host_mux_sequence": 65535,
+    "cumulative_ack_recovery": true,
+    "unchanged_out_nak_timeout_ms": 60000
+  },
+  "baseline_regression": {
+    "baseline": "0aaa1f4",
+    "baseline_sha256": "843a9ee30db903cd2210332147a3878993f4270adf75ab7c7dd383a2d0696fcc",
+    "adapter": "clock and constructor only; no scheduler/protocol changes",
+    "expected_failures": [
+      "Fake guest IN endpoint queue overflow",
+      "Already accepted data transmitted again during busy-guest wait"
+    ],
+    "methods": [
+      "incomingEndpointIsServicedBeforeWritableTcpWindowFills",
+      "busyGuestThatAlreadyAcceptedMuxDataDoesNotTriggerBlindReplay",
+      "lostMuxFrameIsReplayedWithoutFloodingGuestOrReplayingAcceptedPrefix"
+    ],
+    "reproduced_failures": 3,
+    "apple_inputs": false,
+    "output": [
+      "incomingEndpointIsServicedBeforeWritableTcpWindowFills: reproduced Fake guest IN endpoint queue overflow",
+      "busyGuestThatAlreadyAcceptedMuxDataDoesNotTriggerBlindReplay: reproduced expected:<256> but was:<1024>",
+      "lostMuxFrameIsReplayedWithoutFloodingGuestOrReplayingAcceptedPrefix: reproduced Fake guest IN endpoint queue overflow"
+    ],
+    "updated_results": "See app/build/test-results/testDebugUnitTest and validation-results.json"
+  },
+  "apple_restored_phase_confirmed_on_phone": true,
+  "guest_fs_patches_confirmed_on_phone": false,
+  "first_ios_boot_confirmed_on_phone": false,
+  "real_ramdisk_rewrite_probe": {
+    "source_sha256": "4013d9b3bb6c7fa0ff82397effc032b6afdb6f3c5e1672782698119dd9b3f704",
+    "im4p_bytes": 104685595,
+    "original_job_fork_bytes": 0,
+    "original_flags": 32,
+    "new_job_bytes": 418,
+    "new_flags": 0,
+    "input_unchanged": true,
+    "actual_executable_path_verified": true,
+    "job_bytes_verified": true,
+    "storage_job_bytes": 599,
+    "storage_job_bytes_verified": true,
+    "nvmefwupdater_path_verified": true,
+    "updated_daemon_verified": true,
+    "umount_executable_present": false,
+    "guest_boot_tested": false
+  },
+  "restore_flow": "stock restore -> Status 0/ACK -> host stop/checkpoint; isolated patch-only boot disables restore monitor, runs stock nvmefwupdater --skip via launchd, immediately monitors console without USB accept; no disk reset/StartRestore",
+  "legacy_proof_in_received_0_2_5_logs": true,
+  "swift_parity_hashes_unchanged": true,
+  "linux_storage_boot_probe": {
+    "engine_source": "b76fa575831d94a80db169ffb3c76d9094a648bd",
+    "guest_memory": "2G",
+    "guest_os_image_present": false,
+    "start_restore_sent": false,
+    "usb_accepted": false,
+    "state": "storage_initialized",
+    "nvme_mode_0": true,
+    "nvme_skip_success": true,
+    "patcher_started": true,
+    "storage_job_loaded": true,
+    "synthetic_daemon_cycles_verified": 0,
+    "elapsed_seconds": 20,
+    "qemu_exit": 0,
+    "root_header_and_tail_sha256_before": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+    "root_header_and_tail_sha256_after": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+    "root_sentinel_preserved": true,
+    "root_physical_bytes": 131072,
+    "filesystem_patches_verified": false,
+    "first_ios_boot_verified": false,
+    "last_tested_app_version": "0.2.8-dev; retained as previous production-daemon boot test"
+  },
+  "linux_probe_environment": "Linux x86_64 TCG, clean MakrSas/Inferno source b76fa575831d94a80db169ffb3c76d9094a648bd; not an Android device",
+  "earlier_private_storage_probe_seconds": 20,
+  "patch_only_ramdisk_boot_confirmed_on_phone": "0.3.0 verified all 45 sites and cleanly unmounted System; hung on Data mount. System service-cache method is untested on actual phone.",
+  "prior_0_2_6_checkpoint_tests": {
+    "new_tests": 9,
+    "all_nine_disk_lengths_and_header_hashes_preserved": true,
+    "legacy_latest_attempt_proof": true,
+    "full_retry_invalidates_before_truncate": true,
+    "corrupt_or_mismatched_receipt_rejected": true,
+    "stock_vs_patch_ramdisk_selection": true,
+    "disabled_monitor_job_and_compression_flag": true,
+    "panic_not_success": true
+  },
+  "new_0_2_7_tests": {
+    "additional_tests": 3,
+    "storage_job_argv_and_keepalive": true,
+    "missing_storage_record_preserves_destination": true,
+    "volume_wait_protocol_and_180s_boundary": true
+  },
+  "apple_payloads_downloaded_for_this_fix": false,
+  "guest_daemon_sha256": "13d49f8cf9962fbbbec243fb365bca3a14541ad49eaf8c13bf367bcd6971114b",
+  "guest_daemon_arch": "arm64 Mach-O (not arm64e), ad-hoc signed, imports guest libSystem.B.dylib",
+  "guest_daemon_adhoc_sha256_slots_verified": 21,
+  "guest_daemon_host_tests": 15,
+  "phone_system_cache_success_output_observed": true,
+  "android_native_libraries_unchanged_from_0_2_7": true,
+  "first_post_cache_stall_root_cause": "confirmed current block is APFS Data mount in restore ramdisk; keybag/SEP dependency suspected but exact cause not established",
+  "linux_synthetic_daemon_probe": {
+    "engine_source": "b76fa575831d94a80db169ffb3c76d9094a648bd",
+    "guest_memory": "2G",
+    "guest_os_image_present": false,
+    "start_restore_sent": false,
+    "usb_accepted": false,
+    "state": "storage_initialized",
+    "nvme_mode_0": true,
+    "nvme_skip_success": true,
+    "patcher_started": true,
+    "storage_job_loaded": true,
+    "synthetic_daemon_cycles_verified": 2,
+    "native_tmpfs_unmount_verified": true,
+    "elapsed_seconds": 20,
+    "qemu_exit": 0,
+    "root_header_and_tail_sha256_before": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+    "root_header_and_tail_sha256_after": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+    "root_sentinel_preserved": true,
+    "root_physical_bytes": 131072,
+    "filesystem_patches_verified": false,
+    "first_ios_boot_verified": false,
+    "plan": "synthetic-test",
+    "plan_sites": 2,
+    "production_plan_tested_here": false,
+    "first_cycle": "fake patcher writes miniature plan; readback required",
+    "second_cycle": "miniature plan reused without invoking fake patcher",
+    "real_apfs_mounted": false,
+    "real_tmpfs_unmount": true,
+    "synthetic_launchd_cache": true,
+    "system_service_cache_edit_verified": true,
+    "data_mounted": false,
+    "data_mounts_requested": 0,
+    "actual_user_launchd_cache_tested": false
+  },
+  "synthetic_guest_probe_setup_errors": [
+    "First setup could not create scratch directory; put returned ENOENT before daemon cycle. Fixed by remounting scratch ramdisk root read-write (test only).",
+    "Shell mock commands exited 127; restore ramdisk did not execute #!/bin/sh mocks. Fixed by copying unchanged signed Mach-O test binary as each fake command.",
+    "Generic storage probe stopped after storage initialized, before full fake daemon cycle; added explicit --expect-daemon-self-test requirement."
+  ],
+  "guest_daemon_toolchain": "Android NDK 28.2.13676358 Linux LLVM 19",
+  "android_native_libraries_unchanged_from_0_2_8": true,
+  "prior_version_test_gap": "synthetic guest probe now exercises the actual bplist C editor with an independent plistlib fixture; actual user System cache not available on Linux",
+  "native_unmount_api": {
+    "function": "unmount(path, 0)",
+    "forced": false,
+    "errors_report_errno": true,
+    "no_external_executable": true
+  },
+  "baseline_missing_umount_regression": {
+    "last_fixed_version": "0.2.9",
+    "native_unmount_api_unchanged": true
+  },
+  "linux_guest_probe_failures_0_2_9": [
+    {
+      "phase": "before launchd/daemon start",
+      "failure": "Kernel data abort pc 0xfffffff00979a36c",
+      "cause": "unknown, no native unmount test executed"
+    },
+    {
+      "phase": "test fixture setup",
+      "failure": "System Policy deny file-mount for devfs and tmpfs under new /ember-daemon-probe directory",
+      "resolution": "stock mount_tmpfs on existing /mnt9 succeeded, followed by actual native unmount from the ad-hoc signed probe"
+    }
+  ],
+  "linux_native_unmount_marker": "EMBER NATIVE UNMOUNT RESULT mount=0 unmount=0 errno=0 missing=-1 missing_errno=2",
+  "android_native_libraries_unchanged_from_0_2_9": true,
+  "cache_patch_plan": {
+    "id": "18A5351d-v031-software",
+    "build": "18A5351d",
+    "sites": 45,
+    "replacement_bytes": 180,
+    "sha256": "11514579073eb38bdcd929a71a96cf924dded5b527112e10bcbac38436f06a34",
+    "source": "replacement-byte map emitted by the pinned filesystem patcher in a previously successful run",
+    "original_apple_instructions_included": false,
+    "full_cache_integrity_verified": false,
+    "actual_user_cache_matches_verified": false
+  },
+  "cleanup_order": {
+    "nonzero_child_exit_alone_aborts": false,
+    "cleanup_complete_required": true,
+    "cache_and_present_sidecar_fsync": true,
+    "sync_before_unmount": true,
+    "force_unmount": false
+  },
+  "linux_guest_probe_failures_0_3_0": [
+    {
+      "phase": "before launchd/daemon",
+      "failure": "Kernel data abort pc 0xfffffff00979a36c; no daemon/test marker",
+      "cause": "unknown; subsequent identical retry succeeded"
+    }
+  ],
+  "guest_patch_sites_confirmed_on_phone": 45,
+  "guest_system_unmount_confirmed_on_phone": true,
+  "guest_five_services_confirmed_on_phone": false,
+  "service_patch_target": "System/System/Library/xpc/launchd.plist LaunchDaemons job dictionaries, matched by 5 exact Label values; SpringBoard guard required",
+  "data_volume_mount_during_patches": false,
+  "data_volume_node_required_during_patches": false,
+  "data_unlock_normal_boot_verified": false,
+  "binary_plist_host_tests": 22,
+  "binary_plist_sanitizer_tests": 22,
+  "binary_plist_sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "binary_plist_scope": {
+    "format": "bplist00",
+    "max_bytes": 33554432,
+    "ref_and_offset_widths": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "unicode_validation": true,
+    "ref_width_overflow_rejected": true,
+    "backup": "launchd.plist.ember-original",
+    "temporary_fsync_readback_rename_final_readback": true,
+    "unrelated_jobs_preserved": true,
+    "full_input_file_integrity_guaranteed": false
+  },
+  "concrete_test_errors_fixed": [
+    "Linux compile initially lacked stdlib declarations for malloc/free; added stdlib.h",
+    "Independent 100-mutation oracle found accepted non-ASCII data in ASCII-tag object at byte 209; global ASCII/UTF-16 validation and explicit regression added"
+  ],
+  "android_native_libraries_unchanged_from_0_3_0": true,
+  "linux_guest_probe_failures_0_3_1": []
+}

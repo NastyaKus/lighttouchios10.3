@@ -1,0 +1,82 @@
+{
+  "version": "0.4.0-dev",
+  "version_code": 14,
+  "date_utc": "2026-11-05",
+  "branch": "codex/graphics-gles",
+  "preserved_working_version": {
+    "tag": "embervm-0.3.1-working",
+    "commit": "52a1718f1083be7cbcb7c17661a45fae75a66252"
+  },
+  "scope": "host presentation and profiling; guest graphics remain software",
+  "build": {
+    "debug_apk": "PASS",
+    "lint": "PASS",
+    "lint_summary": "0 errors, 25 warnings",
+    "unit_tests": 80,
+    "unit_failures": 0
+  },
+  "host_gles": {
+    "checks": 23,
+    "result": "PASS",
+    "driver": "Mesa llvmpipe OpenGL ES 3.2, Mesa 25.0.7, LLVM 19.1.7",
+    "sanitizers": "ASan + UBSan PASS; driver leak detection disabled",
+    "coverage": [
+      "BGRA/RGBA",
+      "opaque alpha",
+      "top-down orientation",
+      "padded stride",
+      "dirty rectangle",
+      "retained texture",
+      "bounds",
+      "resize",
+      "context recreation",
+      "injected swap error"
+    ]
+  },
+  "report_comparison": {
+    "tests": 4,
+    "result": "PASS",
+    "inputs": "synthetic only"
+  },
+  "display_abi": "PASS: old FrameInfo 32 bytes/stats 16 bytes; engine/JNI metrics offsets and size agree",
+  "engine": {
+    "upstream_commit": "b76fa575831d94a80db169ffb3c76d9094a648bd",
+    "patches": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "sha256": "9def35821710e4cd50bb1da3bfed565a06931af48632a92f58645d5e7d9976e8",
+    "new_optional_symbol": "inferno_display_metrics_read_v1 exported",
+    "coroutine_fix": "qemu_android_fiber_setjmp/longjmp local symbols verified in unstripped build",
+    "guest_tools": "unchanged from working 0.3.1"
+  },
+  "apk": {
+    "bytes": 38029637,
+    "sha256": "96eda66b2f2088f6b249b3fd8d5455845865815c18081bc583d724de9e566448",
+    "package": "dev.embervm.android",
+    "signature": "PASS; matches 0.3.1",
+    "certificate_sha256": "b90496cadbd15120cf72ebb73fa2e29496222ba570a125886967a253e75707ae",
+    "alignment": "PASS zipalign -c -P 16 4",
+    "jni_sha256": "78c4325ba9536a4abcf27555f5de9bed22c95ec0ddd921fa7e1313f11139a824"
+  },
+  "not_run": [
+    "Android install and iOS boot with 0.4.0",
+    "Adreno 740 driver execution",
+    "Android Surface loss/rotation and background/foreground",
+    "Full JNI recovery/fallback after real driver error",
+    "Android native-crash/LMK latch integration",
+    "Three real-phone 60s CPU and GLES benchmark pairs per resolution",
+    "GPU execution timings, audio and KVM"
+  ],
+  "gated_work": {
+    "pixman_2d_offload": "pending measured >=15% of main-loop CPU",
+    "guest_gpu_bridge": "feasibility research documented; no implementation; no Metal/AGX device claimed"
+  },
+  "notes": [
+    "Working 0.3.1 phone boot is established by user screenshots; this is not evidence for 0.4.0 GPU performance.",
+    "No Apple guest files or user diagnostics are included in source/release archives."
+  ],
+  "safety_latch": "cleared after QEMU exit 0 plus render thread teardown acknowledgement; otherwise CPU next launch"
+}

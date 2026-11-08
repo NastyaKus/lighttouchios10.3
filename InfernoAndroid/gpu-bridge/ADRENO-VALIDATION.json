@@ -1,0 +1,54 @@
+{
+  "date_utc": "2026-11-05",
+  "evidence_source": "Two user-supplied diagnostic runs, independently cross-checked offline; no direct device access",
+  "app_version": "0.5.0-gpulab",
+  "version_code": 15,
+  "shipped_implementation_commit": "4893f84f07d426fcb34f7f34f56789ac67f24369",
+  "android_api": 36,
+  "gl_vendor": "Qualcomm",
+  "gl_renderer": "Adreno (TM) 740",
+  "gl_version_family": "OpenGL ES 3.2 V@0676.76.1",
+  "verified_runs": [
+    {
+      "passed": true,
+      "elapsed_ms_including_preparation_and_guest_boot": 46752,
+      "checks": 40,
+      "transport_commands": 119,
+      "transport_sequences_contiguous": true,
+      "transport_status_errors": 0,
+      "api_calls": 194,
+      "batches": 18,
+      "api_draws": 4,
+      "shader_compile_attempts_including_deliberate_invalid_shader": 5,
+      "readback_pixels": 16391,
+      "qemu_exit_status": 0,
+      "scratch_root_sentinels_preserved": true
+    },
+    {
+      "passed": true,
+      "elapsed_ms_including_preparation_and_guest_boot": 47466,
+      "checks": 40,
+      "transport_commands": 119,
+      "transport_sequences_contiguous": true,
+      "transport_status_errors": 0,
+      "api_calls": 194,
+      "batches": 18,
+      "api_draws": 4,
+      "shader_compile_attempts_including_deliberate_invalid_shader": 5,
+      "readback_pixels": 16391,
+      "qemu_exit_status": 0,
+      "scratch_root_sentinels_preserved": true
+    }
+  ],
+  "conclusion": "Offscreen iOS GLES/EAGL diagnostic bridge executes on the reported Adreno driver and returns guest-verified pixels",
+  "normal_android_start_bind_guest_roundtrip_shutdown_and_repeat_observed": true,
+  "full_guest_gpu_acceleration_complete": false,
+  "not_verified": [
+    "FPS or latency improvements; elapsed time is full diagnostic duration, not GPU execution time",
+    "CAEAGLLayer/window presentation or GPU-backed IOSurface sharing",
+    "Existing application graphics or Apple EAGL/IOAccelerator/Metal ABI integration",
+    "GarageBand, audio or audio latency",
+    "Background/screen-off behavior, cancellation, driver crash recovery or low-memory killing"
+  ],
+  "privacy": "Aggregate technical results only; original user ZIP, logs, run IDs, process IDs, device model and absolute paths are not stored in the repository"
+}

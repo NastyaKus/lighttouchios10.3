@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
+        android:name=".EmberApplication"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
@@ -34,7 +35,7 @@
             android:exported="false"
             android:process=":vm"
             android:launchMode="singleTask"
-            android:taskAffinity="org.lighttouch.inferno.vm"
+            android:taskAffinity="dev.embervm.android.vm"
             android:label="@string/vm_label"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation|uiMode|density"
             android:resizeableActivity="true"
@@ -49,6 +50,20 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="User-started local virtual machine (iOS guest emulation) that keeps running while the app is in the background" />
         </service>
+
+        <activity android:name=".RestoreActivity" android:exported="false" />
+        <activity android:name=".GpuLabActivity" android:exported="false" />
+        <service android:name=".GpuLabService" android:exported="false" android:process=":gpulab"
+            android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="User-started disposable guest GPU diagnostic with local iOS emulation" />
+        </service>
+        <!-- No Activity/HWUI is ever hosted in this EGL-owning process. -->
+        <service android:name=".GpuHostService" android:exported="false" android:process=":gpu" />
+        <service android:name=".SystemGpuHostService" android:exported="false" android:process=":system_gpu" />
+        <activity android:name=".RestoreMonitorActivity" android:exported="false"
+            android:process=":vm" android:launchMode="singleTask" android:taskAffinity="dev.embervm.android.vm" />
+        <service android:name=".RestorePrepService" android:exported="false" android:foregroundServiceType="dataSync" />
 
         <service
             android:name=".ImportService"

@@ -1,0 +1,19 @@
+Ember VM Android installer and launcher: GPL-3.0-or-later.
+Restore code ported from MakrSas/Inferno-iOS:
+https://github.com/MakrSas/Inferno-iOS/tree/4bc39702871f5a118d96acbad4df7a675ddf14e0
+Android base: NastyaKus/lighttouchios10.3, d453a1b4563dffd8d90f9a43b86ab45b15580e8d.
+This development APK is supplied together with its modified Android source archive.
+
+The Inferno/QEMU engine retains its AGPL/GPL and dependency licenses.
+Its exact source revision, patches and dependency build recipe are in
+InfernoAndroid/engine/build-engine.sh and build-deps.sh in the supplied source.
+https://github.com/MakrSas/Inferno
+https://github.com/ChefKissInc/Inferno
+
+Guest binaries: inferno_patcher and inferno_fs_patcher,
+MakrSas/Inferno-iOS release v0.3.1 (GPL-3.0-or-later).
+Corresponding source: https://github.com/MakrSas/Inferno-iOS/tree/v0.3.1/app/guest
+IPA SHA256: c66b56de80d55b989df1c70ebcf4b321751a6703a9d253c9ff349f434fd7c8dc
+
+No Apple IPSW, SEP ROM, firmware keys, real tickets or restored iOS disk
+are included in this APK or its synthetic test fixtures.

@@ -1,0 +1,64 @@
+{
+  "date_utc": "2026-11-06",
+  "evidence_source": "One user-supplied 0.6.0 presentation run, independently cross-checked offline; no direct device access",
+  "app_version": "0.6.0-gpupresent",
+  "version_code": 16,
+  "expected_shipped_implementation_commit": "77d46e3d0e419fdef03f20402eeef2ff71ea5dee",
+  "android_api": 36,
+  "gl_vendor": "Qualcomm",
+  "gl_renderer": "Adreno (TM) 740",
+  "gl_version_family": "OpenGL ES 3.2 V@0676.76.1",
+  "elapsed_ms_including_preparation_boot_and_animation": 70278,
+  "guest_checks": {
+    "gles": 40,
+    "presentation_including_repeated_per_frame_checks": 191
+  },
+  "transport": {
+    "commands": 316,
+    "sequences_contiguous": true,
+    "status_errors": 0,
+    "guest_packets_before_destroy": 315
+  },
+  "api": {
+    "calls": 1262,
+    "batches": 85,
+    "draw_calls": 64,
+    "shader_compile_attempts_including_deliberate_invalid_shader": 7
+  },
+  "presentation": {
+    "submitted_frames": 60,
+    "window_frames": 60,
+    "surface_creates": 1,
+    "surface_losses": 0,
+    "source_dimensions": [
+      64,
+      64
+    ],
+    "mirror_sample_pixels": 240,
+    "cpu_full_frame_upload_bytes_in_present_path": 0
+  },
+  "pixelcopy": {
+    "result_success": true,
+    "verified_frame_serial": 1,
+    "run_matches": true,
+    "surface_generation_matches": true,
+    "sampled_corners": 4,
+    "colors_match_exactly": true,
+    "nonce_color_matches_guest": true,
+    "whole_frame_compared": false,
+    "all_60_window_frames_compared": false
+  },
+  "qemu_exit_status": 0,
+  "guest_failure_or_kernel_panic_markers": false,
+  "scratch_root_sentinels_preserved": true,
+  "conclusion": "Diagnostic iOS GLES/EAGL -> shared GPU renderbuffer -> Adreno -> Android Surface path observed; one PixelCopy capture independently confirms four current-run corner colors",
+  "full_guest_gpu_acceleration_complete": false,
+  "not_verified": [
+    "Ordinary iOS apps, SpringBoard, CAEAGLLayer/IOSurface/compositor or Metal integration",
+    "FPS, input latency or sustained performance; run duration includes boot and deliberate guest sleeps",
+    "Every pixel or each of the 60 displayed frames",
+    "Repeat 0.6.0 presentation runs, rotation, backgrounding, surface loss, cancellation and driver crash recovery",
+    "GarageBand, audio or audio latency"
+  ],
+  "privacy": "Aggregate technical results only; original ZIP/logs, run and process IDs, Surface generation, nonce, timestamps, device model and paths are not stored in the repository"
+}

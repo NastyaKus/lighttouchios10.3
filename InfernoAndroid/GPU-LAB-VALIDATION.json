@@ -1,0 +1,139 @@
+{
+  "version": "0.5.0-gpulab",
+  "versionCode": 15,
+  "package": "dev.embervm.android",
+  "branch": "codex/guest-gpu-bridge",
+  "base_commit": "f71d4f047d0dcdd171bea06f5f455dc77efaf2a7",
+  "date_utc": "2026-11-05",
+  "full_guest_gpu_acceleration_complete": false,
+  "android_device_connected": false,
+  "android_service_lifecycle_tested": false,
+  "adreno_tested_here": false,
+  "implemented": [
+    "Separate Android diagnostic Activity and foreground :gpulab guest process",
+    "EGL executor in bound :gpu process with JNI result/cancel API",
+    "Read-only boot input copies, nine new sparse disks, single-pass HFSX diagnostic ramdisk",
+    "Shared OS machine lock including normal VM/restore/import/preparation, held until QEMU process death",
+    "Explicit guest/host evidence checks, bounded timeout/cancel, atomic reports, ZIP export including live logs"
+  ],
+  "verification": {
+    "gradle": "testDebugUnitTest + assembleDebug + lintDebug PASS offline",
+    "jvm_tests": {
+      "tests": 91,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "lint_errors": 0,
+    "lint_warnings": 21,
+    "jni_fixture": "Desktop JVM + same JNI C wrapper: real GLES roundtrip, 12 return fields, cancellation, existing-file refusal PASS; not Android lifecycle coverage",
+    "kernel": "Real iOS 14 18A5351d release kernel passed both direct-host and JVM/JNI-host probes",
+    "ramdisk": "Prepared with the same new Kotlin GpuLabKit/RestoreRamdisk.buildGpuProbe used by Android",
+    "real_ios_via_jni": {
+      "engine_source": "b76fa575831d94a80db169ffb3c76d9094a648bd",
+      "guest_memory": "2G",
+      "guest_os_image_present": false,
+      "start_restore_sent": false,
+      "usb_accepted": false,
+      "state": "gpu_commands_verified",
+      "guest_command_roundtrip": true,
+      "guest_readback_verified": true,
+      "guest_registry": [],
+      "guest_graphics_driver_implemented": false,
+      "android_adreno_tested": false,
+      "host_backend": [
+        "Mesa / llvmpipe (LLVM 19.1.7, 256 bits) / OpenGL ES 3.2 Mesa 25.0.7-2+deb13u1"
+      ],
+      "gpu_commands": 119,
+      "gles_api": {
+        "calls": 194,
+        "batches": 18,
+        "draws": 4,
+        "shader_compiles": 5,
+        "scope": "experimental GLES2 subset, no system-wide integration",
+        "checks": 40
+      },
+      "eagl_offscreen_adapter_verified": true,
+      "elapsed_seconds": 29,
+      "qemu_exit": 0,
+      "root_header_and_tail_sha256_before": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+      "root_header_and_tail_sha256_after": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+      "root_sentinel_preserved": true,
+      "root_physical_bytes": 131072,
+      "filesystem_patches_verified": false,
+      "first_ios_boot_verified": false
+    },
+    "apk": {
+      "file": "InfernoAndroid/app/build/outputs/apk/debug/app-debug.apk",
+      "bytes": 38326730,
+      "sha256": "dd5a8c89c5517df902584f46e7cf18559a7f22d813891ac0a277a82b9b9eb8d7",
+      "engine_identical_to_0_4_0": true,
+      "gpu_helpers_match_source_binaries": true,
+      "all_native_libs": {
+        "lib/arm64-v8a/libandroidx.graphics.path.so": {
+          "sha256": "41e9a793c43a0f4fddb19e33f346bace464f30f888ba7b9eaf96294ea115bfb6",
+          "elf_load_alignment_at_least_16k": true
+        },
+        "lib/arm64-v8a/libember_guest_gpu_probe.so": {
+          "sha256": "34ecc6ee3900165a631a8959a94a20db9f16ddee7577c627aff613b68c6e5243",
+          "elf_load_alignment_at_least_16k": true
+        },
+        "lib/arm64-v8a/libinferno_jni.so": {
+          "sha256": "78c4325ba9536a4abcf27555f5de9bed22c95ec0ddd921fa7e1313f11139a824",
+          "elf_load_alignment_at_least_16k": true
+        },
+        "lib/arm64-v8a/libqemu-aarch64-softmmu.so": {
+          "sha256": "9def35821710e4cd50bb1da3bfed565a06931af48632a92f58645d5e7d9976e8",
+          "elf_load_alignment_at_least_16k": true
+        }
+      },
+      "zipalign_16k_verified": true,
+      "apk_signature_verified": true,
+      "signing_certificate_sha256": "b90496cadbd15120cf72ebb73fa2e29496222ba570a125886967a253e75707ae"
+    }
+  },
+  "safety_scope": {
+    "existing_guest_disks_attached": false,
+    "normal_engine_binary_changed": false,
+    "restore_checkpoint_changed": false,
+    "apple_inputs_in_apk_or_source_zip": false,
+    "separate_private_scratch_root": true,
+    "diagnostics_export_uses_allowlist": true
+  },
+  "resolved_errors": [
+    "Missing cleanup marker raised FileNotFoundException: explicit isFile rejection",
+    "Linux JNI O_NOFOLLOW/O_CLOEXEC unavailable without _DEFAULT_SOURCE: fixture build flag",
+    "Second local lock descriptor close could release first POSIX lock: reproduced ACQUIRED, fixed registry, cross-process regression PASS",
+    "Temporary run socket path could exceed Unix limits: short cache socket directory",
+    "QEMU data extraction moved under machine lease to avoid launcher/diagnostic races"
+  ],
+  "remaining": [
+    "Install and test APK on physical Android; capture real EGL vendor/renderer and Service/Binder/crash behavior",
+    "Validate Adreno result and fix device-specific driver errors before claiming hardware execution",
+    "No existing-app EAGL/IOAccelerator/Metal ABI integration",
+    "No CAEAGLLayer window presentation, GPU IOSurface sharing or compositor integration",
+    "No GarageBand/audio/latency validation"
+  ],
+  "source_sha256": {
+    "app/build.gradle.kts": "f8824260ffe8f9a627581b170ca9560980b4a329badabd692ab78fb409c10b50",
+    "app/src/main/AndroidManifest.xml": "8c4045594225cadf6a208013632030ef12fd68c05c0967a76a3cb97faf736b0c",
+    "app/src/main/cpp/CMakeLists.txt": "9fda3af1cf48709e5cdf67d997d2c1489efa857d47df151cedd24789ea6e1758",
+    "app/src/main/cpp/gpu_probe_jni.c": "3d642c7b1b5d37cca0b447987ddd5f6bee1aa38558e0a05fe689dfbccef7aa0c",
+    "app/src/main/java/dev/embervm/android/VmLease.kt": "ffd18c49362e2533f388ca72a972f82e6b62e888b07b94142de0cfe268233e9e",
+    "app/src/main/java/dev/embervm/android/GpuLabService.kt": "23aa10b9dc55d720e775cc3af59349428aa9f5d3606daf3cb4859e52abf951b0",
+    "app/src/main/java/dev/embervm/android/GpuLabReports.kt": "520c327611ce15f41bd8442cd0a52cccc72dcfbc77eabe7b5db0a6030cbf16d4",
+    "app/src/main/java/dev/embervm/android/GpuLabKit.kt": "9c99c8843761d471d5be934c9633c09c02bf937a9ff95b638a7a0d17097bd283",
+    "app/src/main/java/dev/embervm/android/GpuLabEvidence.kt": "2050e4e001f1969707444acfce76a3a70919ca11ca26477cd0b896708ed563a0",
+    "app/src/main/java/dev/embervm/android/GpuHostService.kt": "60e8b2c0d600a62e530a807f06f37b48c79cb8bc12c2c8a5ee33072f7ff56aff",
+    "app/src/main/java/dev/embervm/android/GpuLabActivity.kt": "ce1304c2d7c7e091b03e77a5d649844264db25882b5a5222b6c877e997182aac",
+    "app/src/test/java/dev/embervm/android/GpuLabKitTest.kt": "13c1244d2f47277e2a289e4e03306e8472fa288317d33eee259e5a8926f4107c",
+    "app/src/test/java/dev/embervm/android/GpuLabEvidenceTest.kt": "c7b8d825a33c56e395d02a9f66706d36dbe216c69df738c5b9d82763bb2ddd12",
+    "app/src/test/java/dev/embervm/android/VmLeaseTest.kt": "d091deedffc3b0e4ca68b97722c6cc2094f7c58b93780f293b807c614a869804",
+    "gpu-bridge/jni-test/GpuHostNative.java": "8e67e3d5867abd2c02e191b7efaca66a59aa572a76aeca401144accd647528bf",
+    "gpu-bridge/jni-test/build.sh": "b1d52e30c1bb092ca579d48ce09a544cc90a4f7abd75dc66fb06450ca863b58e",
+    "gpu-bridge/jni-test/test.py": "1876c008973a291d4e2ed7a9a26e41f1eab77e892faa0be86f1696afb37d89bb",
+    "gpu-bridge/jni-test/host.py": "6d5793156c3291f0cf825f7acc6553c788b4c204e990e6bad23319f4fcb844ce",
+    "tools/gpu-lab-probe/Prepare.java": "8b561ff1a7864b805debd4c6a479005b0afcf86b9dad4b416fb2b6d464e74a54",
+    "tools/gpu-lab-probe/prepare.sh": "5cf82c5bb974efedb9d54c1879917e728daf38eb9ccfcef86ecf7f8f8b923620"
+  }
+}

@@ -1,0 +1,151 @@
+{
+  "goal": "full guest iOS GPU acceleration; not achieved yet",
+  "branch": "codex/guest-gpu-bridge",
+  "base_commit": "ebcd423ec99f6ca4eaade1f5a9c0513ea9a21135",
+  "date_utc": "2026-11-05",
+  "scope": "experimental GLES2 C API subset and explicit offscreen EAGLContext adapter, diagnostic process only",
+  "real_ios_probe": {
+    "engine_source": "b76fa575831d94a80db169ffb3c76d9094a648bd",
+    "guest_memory": "2G",
+    "guest_os_image_present": false,
+    "start_restore_sent": false,
+    "usb_accepted": false,
+    "state": "gpu_commands_verified",
+    "guest_command_roundtrip": true,
+    "guest_readback_verified": true,
+    "guest_registry": [],
+    "guest_graphics_driver_implemented": false,
+    "android_adreno_tested": false,
+    "host_backend": [
+      "Mesa / llvmpipe (LLVM 19.1.7, 256 bits) / OpenGL ES 3.2 Mesa 25.0.7-2+deb13u1"
+    ],
+    "gpu_commands": 119,
+    "gles_api": {
+      "calls": 194,
+      "batches": 18,
+      "draws": 4,
+      "shader_compiles": 5,
+      "scope": "experimental GLES2 subset, no system-wide integration",
+      "checks": 40
+    },
+    "eagl_offscreen_adapter_verified": true,
+    "elapsed_seconds": 12,
+    "qemu_exit": 0,
+    "root_header_and_tail_sha256_before": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+    "root_header_and_tail_sha256_after": "49e956f45567dd1ebac9cace73026e46c409799a853ab13e1d8918bc0b6acd57",
+    "root_sentinel_preserved": true,
+    "root_physical_bytes": 131072,
+    "filesystem_patches_verified": false,
+    "first_ios_boot_verified": false
+  },
+  "host_execution": "Linux Mesa llvmpipe software; no hardware acceleration or performance improvement claimed",
+  "tests": {
+    "gles_client": "PASS 40 checks: compiler/linker errors, textured quad, VBO, uniform, blend, scissor, packing, bounds, error propagation, batching, pthread ownership",
+    "offscreen_eagl": "PASS API=2 selectors/current/detach/reattach/pthread ownership; API=3 and drawable/present explicitly rejected",
+    "protocol": "PASS independent golden LE/CRC vector and 20000 malformed frames",
+    "gles_wire": "PASS whole-batch structural validation, scalar-query whitelist, bounds, unsupported caps, readback bounds",
+    "legacy_executor": "PASS real GL readback, bounds, replay, NaN, fence; legacy file integration PASS",
+    "transport": "PASS existing-file and unmarked-channel refusal, GLES file integration",
+    "sanitizers": "Linux ASan+UBSan PASS for protocol, executors, full C API transport integration; Mesa leak detection disabled; no iOS/Android sanitizer runtime claim",
+    "boot_monitor": "7 synthetic process/counter/selector-marker tests PASS; independent real guest boot also PASS",
+    "binary_rebuild": "five client binaries rebuilt into different directory, all byte-identical",
+    "signature": "both Mach-O probe entitlement plists exactly match source; real guest accepted EAGL probe and dylib",
+    "android": "NDK 28.2.13676358 arm64 API29 compile PASS, ELF LOAD alignment 16384; no Android runtime/JNI integration yet"
+  },
+  "binaries": {
+    "libEmberGLES.dylib": {
+      "sha256": "e82aeaa0c2a59994da64ea0094a07989b2fb9fa0a6c69b95a5bd7e77c31617ad",
+      "bytes": 88208,
+      "byte_identical_rebuild": true
+    },
+    "gles-api-probe-ios": {
+      "sha256": "080791f60848faa381539ecfb3bbeb2763fc2b86bef2bccf038a287f91182917",
+      "bytes": 71360,
+      "byte_identical_rebuild": true,
+      "entitlements_match": true
+    },
+    "eagl-api-probe-ios": {
+      "sha256": "82a51619e4ad8f5001f0ffb243c32369eb9f74160e2b5527587e59640adc1a1a",
+      "bytes": 72112,
+      "byte_identical_rebuild": true,
+      "entitlements_match": true
+    },
+    "libEmberGLES.so": {
+      "sha256": "1eec797718bd04b283aed542be32a6b7a06474f52bd3358af07f1d8198ebe23d",
+      "bytes": 39296,
+      "byte_identical_rebuild": true
+    },
+    "gles-api-probe-linux": {
+      "sha256": "47cf23f2001fa813d8bc3998430f30501db21bb4ef55f51226de57388b4dd4b7",
+      "bytes": 26904,
+      "byte_identical_rebuild": true
+    }
+  },
+  "android_library": {
+    "sha256": "dcd8fbfc1192b1135b57f31313f4c5327f9c90265a6e06f4618a3c2bfb51c59f",
+    "bytes": 37216
+  },
+  "production_apk_changed": false,
+  "engine_source_changed": false,
+  "existing_guest_disks_used": false,
+  "remaining_blockers": [
+    "Android isolated diagnostic host process and real Adreno execution",
+    "Production guest broker/driver IPC without giving apps raw-disk access",
+    "Full graphics API coverage and correct resource lifetime beyond small diagnostic subset",
+    "CAEAGLLayer/drawable presentation, GPU-backed IOSurface sharing, fences and compositor integration",
+    "Existing Apple EAGL/IOAccelerator/Metal ABI integration; no system class replacement tested",
+    "Installed iOS/GarageBand graphics, audio and latency tests"
+  ],
+  "errors_resolved": [
+    "NDK stdatomic.h pulled Android sys/cdefs.h into freestanding Mach-O target: use compiler __atomic builtins",
+    "Mach-O TLS __tlv_bootstrap missing from public link interface: added, guest pthread runtime checked",
+    "Objective-C objc_alloc/objc_release missing from minimal libobjc TBD: added public symbol declarations",
+    "GCC misleading-indentation under -Werror: fixed statements",
+    "GLES3 array query could overwrite scalar slot: scalar GLES2 whitelist and host/guest negative tests"
+  ],
+  "signer": {
+    "source": "ProcursusTeam/ldid",
+    "commit": "af86971ae72ec3ed3d0a699107c4e882324c941b",
+    "signature": "ad-hoc, not Apple signing"
+  },
+  "source_sha256": {
+    "GLES-API.md": "e727e9cd6e6fdf47bbafb35c902a5d0f0e1f25908c01a8fe67b1f7658803a06b",
+    "README.md": "bdda25b434e382c08dc649733229eb4693b21fcee69a5d3b9b3286aa0e166cb7",
+    "bin/eagl-api-probe-ios": "82a51619e4ad8f5001f0ffb243c32369eb9f74160e2b5527587e59640adc1a1a",
+    "bin/gles-api-probe-ios": "080791f60848faa381539ecfb3bbeb2763fc2b86bef2bccf038a287f91182917",
+    "bin/guest-probe-ios": "fbecc22cd41dd2f8f0416e32ab72e4e1521d206eb211cd1c25039548e624d7a2",
+    "bin/libEmberGLES.dylib": "e82aeaa0c2a59994da64ea0094a07989b2fb9fa0a6c69b95a5bd7e77c31617ad",
+    "build-android.sh": "a91d17ca275e56c91fd4588da97dd9b9917f53dd1a02bec1820630b70f9e3938",
+    "build-gles-client.sh": "10d19b0f3caacb5175faaad466d6a465678f1c903d4791884925b95b63793e97",
+    "build-ldid.sh": "0f2b0f007108b294e47a7a41bb71763689a2700eede9a6e9712a03aeb849b612",
+    "build.sh": "37b319fc9aedf6a4517e839882dc6a0cef90b8770b2002e8bc1ed4df89cc0e31",
+    "eagl-adapter.c": "edfa898f7ff3a788a94a477785958796fb73749de0472fb819d77425c95430d6",
+    "eagl-adapter.h": "dddcc1aca120ed7a226130ee16a8549f19c0ad9175fb3a073c1660cc22181867",
+    "eagl-api-probe.m": "1ff98a3c817abf8a59b0426f2de92ec34f526d41dc0690b2d16624cc07bf176c",
+    "executor-test.c": "04d2dfcb19efc5db89adaa7c5b896f1315fec2831542e80d016883beae4576a2",
+    "executor.c": "0c83d9c9c6c1faae7a9c9d7a1149810d6161cfa18f1304d8d8728bb70d412142",
+    "executor.h": "6514d34a0425e03b465352c7354ee80044cd2f3028cd387fdf918f4b101a3c4d",
+    "file-host.c": "8a9095278b2067310f03ba4946b3095f485f8c81f2c5ed517ccd85e74ff23f9f",
+    "file-host.h": "5b6c4d7942b59d73bc5e2a16ff94963d22ca8ff909ae5a8c1ed079db4f1db305",
+    "gles-api-probe.c": "2db887c59b20820139cbf6bf9faf494f4af4b8b69bfae9bf312a439659ffe3e3",
+    "gles-client.c": "01e58ce3b2b8e64c42d6162d6c093556261cbc71a10f9400af04230eaf784c33",
+    "gles-host-test.c": "ccad3cee0a73dadb14a5f9ca87c66a4cf01b514d3808e9e9dd6131cf74f8ed4b",
+    "gles-host.c": "cd092375c22c6c2c61258ff822f3eda53e41ad4708a4a09a51d398230d3e7b2e",
+    "gles-host.h": "44626164c360fbde5800b19fffcae7627d1c4fe57076765e3d7ae34709f0f375",
+    "gles-wire.h": "cd627540cf20773fbf34f4e13f1bf6ad04f1e9bd0249cfa19a3592aef6bbccdd",
+    "gles2-subset.h": "e01c66397239ed03b4eb5145ba54944b66801801263bd963f6b2f03b7c00146e",
+    "guest-probe.c": "b579d38fc2ea052554f335c6a9d8b8f511a837c82920ee7864ad92689eae0010",
+    "host-probe.c": "9a520ccd920681ef7723a5cab108d726826fad17b1ff19f90a576ba2572512fe",
+    "integration-test.py": "187737d9d5d622b56fd609a1bb07fca6a00abde00a42852091f2b5c036276f53",
+    "libSystem.tbd": "99fd8e12f495f6ae9eab75f0a008b6a74f3eba47dc8d30534f50b138f7a9f68e",
+    "libobjc.tbd": "0064157de309e4284fad7fda24bc4c914e3968cb2c360b2a4f76574fdc4aebba",
+    "probe.entitlements.plist": "142ecf32c5a6ec398095a7bb99b72ffb2ad84c16bc9bd2aa02f76660b2919412",
+    "protocol-test.c": "187ad3dc556186d76d48bef3b1062010238bc37440c300f75cbfc558ba1a6c41",
+    "protocol.c": "b032f1b1ed9d2e47715d7c01d45a708edb1844de2c2057b72461681f3fa36602",
+    "protocol.h": "ae5f5e29d6b0b1fe555cbd18cf803a68a6f3463642184c33ea735c52389f96d8",
+    "session.c": "9f2d49f35fba1e00779774c7e4808bbba6fa459e4af644cc4e0a4808a4a5c301",
+    "session.h": "d6acbc5956c749707bd3287f9bbbfef7eb5332025c67cfa0787ba80ccb3742a3",
+    "test-boot-monitor.py": "f659ba265ef76fdf730bdeeb34fa89151601cb14f43ee07ed7036ba1736ebf5c",
+    "test.sh": "6630684d47ed4713c2438574c7890442a972c6d7315766bd28ffe359e4fb54ff"
+  }
+}

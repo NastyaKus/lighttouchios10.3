@@ -30,12 +30,20 @@ if [ "$(git -C "$SRC" rev-parse HEAD 2>/dev/null)" != "$INFERNO_COMMIT" ] || [ -
     git init -q "$SRC"
     git -C "$SRC" fetch -q --depth 1 "$INFERNO_URL" "$INFERNO_COMMIT"
     git -C "$SRC" -c advice.detachedHead=false checkout -q FETCH_HEAD
-    for p in "$HERE"/patches/*.patch; do
-        [ -e "$p" ] || continue
-        echo "== applying $(basename "$p")"
-        git -C "$SRC" apply --whitespace=nowarn "$p"
-    done
 fi
+
+# Apply newly added patches even when the pinned source checkout is cached.
+# Already-applied patches are verified; conflicts fail instead of resetting
+# local source edits or silently shipping a stale engine.
+for p in "$HERE"/patches/*.patch; do
+    [ -e "$p" ] || continue
+    if git -C "$SRC" apply --reverse --check "$p" >/dev/null 2>&1; then
+        continue
+    fi
+    git -C "$SRC" apply --check "$p"
+    echo "== applying $(basename "$p")"
+    git -C "$SRC" apply --whitespace=nowarn "$p"
+done
 
 if [ ! -f "$BUILD/build.ninja" ]; then
     "$MESON" setup "$BUILD" "$SRC" --cross-file "$CROSS" \
@@ -49,7 +57,7 @@ if [ ! -f "$BUILD/build.ninja" ]; then
 fi
 ninja -C "$BUILD" -j"$JOBS" > "$OUT/inferno-ninja.log" 2>&1 || { grep -m30 -B2 -A8 "error:" "$OUT/inferno-ninja.log" >&2; exit 1; }
 
-LIB=$(find "$BUILD" -maxdepth 1 -name 'libqemu-aarch64-softmmu*.so' | head -1)
+LIB=$(find -H "$BUILD" -maxdepth 1 -name 'libqemu-aarch64-softmmu*.so' | head -1)
 [ -n "$LIB" ] || { echo "no libqemu-aarch64-softmmu.so in $BUILD" >&2; ls "$BUILD" >&2; exit 1; }
 mkdir -p "$OUT/engine"
 "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-unneeded -o "$OUT/engine/libqemu-aarch64-softmmu.so" "$LIB"
