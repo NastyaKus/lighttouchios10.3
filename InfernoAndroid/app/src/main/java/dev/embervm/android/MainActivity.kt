@@ -235,6 +235,7 @@ private fun Launcher() {
                 onOpen = { openVm(context) },
                 onStop = { VmService.stop(context) },
             )
+            if (SideBySide.active) SideBySidePanel(snap, Prefs.root(context))
             FilesPanel(snap, Prefs.root(context))
             ImportPanel(
                 progress = import,
@@ -280,8 +281,9 @@ private fun Header() {
         ) { PhoneGlyph(Modifier.size(18.dp, 28.dp)) }
         Spacer(Modifier.width(14.dp))
         Column {
-            Text("Ember VM", style = MaterialTheme.typography.headlineLarge, color = Palette.Text)
-            Text("iOS 14 на Android", style = MaterialTheme.typography.bodyMedium, color = Palette.Muted)
+            Text(if (SideBySide.active) "Ember GPU" else "Ember VM", style = MaterialTheme.typography.headlineLarge, color = Palette.Text)
+            Text(if (SideBySide.active) "тестовая сборка рядом с Ember VM" else "iOS 14 на Android",
+                style = MaterialTheme.typography.bodyMedium, color = Palette.Muted)
         }
     }
 }
@@ -442,6 +444,41 @@ private fun FilesPanel(snap: Snapshot, root: File) {
                 SelectionContainer { Text(root.path, style = Mono.copy(color = Palette.Text)) }
             }
         }
+    }
+}
+
+/** The test build lives in its own package beside the working Ember VM. */
+internal object SideBySide {
+    const val WORKING_PACKAGE = "dev.embervm.android"
+    val active get() = BuildConfig.APPLICATION_ID != WORKING_PACKAGE
+}
+
+/** How to bring the working copy's iOS set over; the copy is never moved. */
+@Composable
+private fun SideBySidePanel(snap: Snapshot, root: File) {
+    Panel(Modifier.animateContentSize()) {
+        Text("Импорт из Ember VM", style = MaterialTheme.typography.titleMedium, color = Palette.Text)
+        Text(
+            "Это отдельная тестовая сборка (${BuildConfig.APPLICATION_ID}). Рабочий Ember VM и его iOS не меняются. " +
+                "Android не даёт приложению читать чужую папку Android/data, поэтому набор копируется с компьютера по USB:",
+            style = MaterialTheme.typography.bodySmall, color = Palette.Muted, modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+        )
+        SelectionContainer {
+            Text("python3 tools/import-from-installed/import.py", style = Mono.copy(color = Palette.Text))
+        }
+        Text(
+            "Скрипт останавливает оба приложения, копирует InfernoData и AppleSEPROM-Cebu-B1 без пустых мест диска " +
+                "и сверяет SHA-256 каждого файла. Можно и вручную: скопировать эти папки куда угодно и выбрать «Импорт → Папка».",
+            style = MaterialTheme.typography.bodySmall, color = Palette.Muted, modifier = Modifier.padding(top = 8.dp),
+        )
+        val manifest = File(root, "import-manifest.txt")
+        val status = when {
+            snap.ready && manifest.isFile -> "Импортировано из Ember VM, все файлы на месте" to Palette.Green
+            snap.ready -> "Все файлы на месте" to Palette.Green
+            snap.requirements.isEmpty() -> "Проверяю…" to Palette.Muted
+            else -> "Пока не хватает ${snap.missing.size} из ${snap.requirements.size} — см. «Файлы образа»" to Palette.Amber
+        }
+        Text(status.first, style = MaterialTheme.typography.bodyMedium, color = status.second, modifier = Modifier.padding(top = 10.dp))
     }
 }
 

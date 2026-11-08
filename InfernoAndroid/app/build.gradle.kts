@@ -44,6 +44,15 @@ android {
             // swap in your own signingConfig to publish it.
             signingConfig = signingConfigs.getByName("debug")
         }
+        // Installs beside a working Ember VM (dev.embervm.android) instead of
+        // over it: another package, its own Android/data folder and debug key.
+        // Import the prepared iOS files with tools/import-from-installed.sh.
+        create("gpuTest") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".gpu"
+            versionNameSuffix = "-gputest"
+            matchingFallbacks += "debug"
+        }
     }
 
     buildFeatures { compose = true; buildConfig = true }
