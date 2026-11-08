@@ -23,6 +23,7 @@ object Prefs {
             haptics = p.getBoolean("haptics", d.haptics),
             showFps = p.getBoolean("showFps", d.showFps),
             renderer = RendererBackend.parse(p.getString("renderer", null)),
+            systemGpuHost = p.getBoolean("systemGpuHost", d.systemGpuHost),
         )
     }
 
@@ -39,6 +40,7 @@ object Prefs {
             .putBoolean("haptics", s.haptics)
             .putBoolean("showFps", s.showFps)
             .putString("renderer", s.renderer.name)
+            .putBoolean("systemGpuHost", s.systemGpuHost)
             .commit()
     }
 
@@ -51,6 +53,9 @@ object Prefs {
 
     /** Where the engine's own data files are unpacked (-L). */
     fun qemuData(context: Context) = File(context.filesDir, "qemu-data")
+
+    /** Tripped by :vm when the experimental system GPU host fails during a boot. */
+    fun systemGpuLatch(context: Context) = SystemGpuLatch(File(context.filesDir, "system-gpu/latch.txt"))
 
     /** Written by :vm when the machine stops on its own terms. */
     fun exitMarker(context: Context) = File(context.filesDir, "last-exit")

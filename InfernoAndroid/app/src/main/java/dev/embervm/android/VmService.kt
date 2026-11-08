@@ -23,7 +23,9 @@ import android.os.VibratorManager
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import org.json.JSONObject
 import java.io.File
+import java.security.SecureRandom
 
 /** What the :vm process is doing, for [VmActivity] (same process). */
 object VmStatus {
@@ -55,6 +57,7 @@ class VmService : Service() {
     private var restoreWorker: Thread? = null
     private var graphics: GraphicsTelemetry? = null
     private var vmLease: VmLease? = null
+    private var systemGpu: SystemGpuHostConnection? = null
 
     private fun claimMachine():Boolean {
         if(vmLease!=null)return true
@@ -109,6 +112,8 @@ class VmService : Service() {
         graphics = runCatching {
             GraphicsTelemetry(this, settings, selected, selected != settings.renderer).also { it.start() }
         }.onFailure { Log.w("ember.graphics", "Cannot start telemetry", it) }.getOrNull()
+
+        startSystemGpu(intent.getBooleanExtra(EXTRA_SYSTEM_GPU, false))
 
         VmStatus.set(VmStatus.State.Booting)
         wakeLock = getSystemService(PowerManager::class.java)
@@ -216,10 +221,66 @@ class VmService : Service() {
         main.postDelayed({ finishProcess() }, 4000)
     }
 
+    private fun systemGpuReport() = File(Prefs.root(this), "system-gpu-vm.json")
+
+    private fun writeSystemGpuReport(state: String, extra: JSONObject.() -> Unit = {}) {
+        runCatching {
+            GpuLabReports.atomic(systemGpuReport(), JSONObject().put("state", state).put("time", System.currentTimeMillis())
+                .put("app", "${BuildConfig.APPLICATION_ID} ${BuildConfig.VERSION_NAME}")
+                // Nothing in iOS talks to the host yet; never report acceleration.
+                .put("guestFrontend", false).put("iosGpuVerified", false).apply(extra))
+        }
+        RestoreDiagnostics.lifecycle(this, "system GPU host $state")
+    }
+
+    /**
+     * The persistent EGP2 host for this boot, in :system_gpu. It is headless:
+     * the VM's Surface keeps its single producer, the :vm renderer, until a
+     * guest frontend exists to draw through the host. A host failure trips the
+     * latch for later boots and never stops the VM.
+     */
+    private fun startSystemGpu(requested: Boolean) {
+        val latch = Prefs.systemGpuLatch(this)
+        SystemGpuChannel.wipe(filesDir)
+        if (!requested) { systemGpuReport().delete(); return }
+        if (latch.tripped) { writeSystemGpuReport("LATCHED") { put("reason", latch.reason) }; return }
+        val random = SecureRandom()
+        val run = ByteArray(16).also(random::nextBytes)
+        val secret = ByteArray(32).also(random::nextBytes)
+        val channelSecret = secret.copyOf()
+        val bootTime = System.currentTimeMillis()
+        writeSystemGpuReport("STARTING")
+        systemGpu = runCatching {
+            SystemGpuHostConnection(this, run, secret, onReady = { port ->
+                val written = runCatching {
+                    SystemGpuChannel.write(filesDir, SystemGpuChannel.Descriptor(port, run, channelSecret, bootTime))
+                }.exceptionOrNull()
+                channelSecret.fill(0)
+                writeSystemGpuReport("READY") {
+                    put("hostPort", port).put("guestAddress", "10.0.2.2:$port")
+                    put("channelBlock", if (written == null) "private" else "failed: ${written.message}")
+                    put("guestChannelAttached", false)
+                }
+            }, onFailure = { message ->
+                channelSecret.fill(0)
+                systemGpu = null
+                SystemGpuChannel.wipe(filesDir)
+                if (!stopping && !finished) {
+                    latch.trip(message)
+                    writeSystemGpuReport("FAILED") { put("reason", message) }
+                }
+            })
+        }.onFailure { channelSecret.fill(0); writeSystemGpuReport("FAILED") { put("reason", "${it.javaClass.simpleName}: ${it.message}") } }
+            .getOrNull()
+        secret.fill(0)
+    }
+
     /** QEMU cannot be started twice in one process: the next start gets a new one. */
     private fun finishProcess() {
         if (finished) return
         finished = true
+        systemGpu?.close(); systemGpu = null
+        SystemGpuChannel.wipe(filesDir)
         graphics?.stop(); graphics = null
         RestoreDiagnostics.lifecycle(this, "controlled VM process shutdown; status=${RestoreState.read(this).phase}")
         wakeLock?.let { if (it.isHeld) it.release() }
@@ -293,6 +354,7 @@ class VmService : Service() {
         const val EXTRA_ARGS = "args"
         const val EXTRA_HAPTICS = "haptics"
         const val EXTRA_RENDERER = "renderer"
+        const val EXTRA_SYSTEM_GPU = "systemGpu"
         const val EXTRA_PATCH_ONLY = "patchOnly"
         private const val CHANNEL = "vm"
         private const val NOTIFICATION_ID = 1

@@ -177,7 +177,8 @@ private fun launchVm(context: Context, settings: VmSettings) {
             .setAction(VmService.ACTION_START)
             .putExtra(VmService.EXTRA_ARGS, args.toTypedArray())
             .putExtra(VmService.EXTRA_RENDERER, settings.renderer.name)
-            .putExtra(VmService.EXTRA_HAPTICS, settings.haptics),
+            .putExtra(VmService.EXTRA_HAPTICS, settings.haptics)
+            .putExtra(VmService.EXTRA_SYSTEM_GPU, settings.systemGpuHost),
     )
     openVm(context)
 }
@@ -605,6 +606,8 @@ private fun SettingsPanel(s: VmSettings, deviceGb: Int, update: (VmSettings) -> 
             }) { Text("Разрешить повторный запуск GLES") }
         }
 
+        SystemGpuHostSetting(s, update)
+
         TextButton(onClick = { advanced = !advanced }, contentPadding = ButtonDefaults.TextButtonContentPadding) {
             Text(if (advanced) "Скрыть дополнительные" else "Дополнительно")
         }
@@ -621,6 +624,28 @@ private fun SettingsPanel(s: VmSettings, deviceGb: Int, update: (VmSettings) -> 
                     trailingIcon = { if (s.bootArgs.isNotEmpty()) IconButton(onClick = { update(s.copy(bootArgs = "")) }) { Icon(Icons.Filled.Refresh, "Сбросить") } },
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun SystemGpuHostSetting(s: VmSettings, update: (VmSettings) -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var latched by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            val latch = Prefs.systemGpuLatch(context)
+            latched = if (latch.tripped) latch.reason else null
+            kotlinx.coroutines.delay(1000)
+        }
+    }
+    Toggle("Системный GPU-хост · эксперимент",
+        "держит GPU-процесс будущего ускорения всё время работы iOS. iOS его пока не использует: нужен гостевой frontend",
+        s.systemGpuHost && latched == null) { update(s.copy(systemGpuHost = it)) }
+    latched?.let { reason ->
+        Text("Отключён после сбоя в прошлом запуске: $reason", style = MaterialTheme.typography.bodySmall, color = Palette.Amber)
+        TextButton(enabled = !Prefs.vmRunning(context), onClick = { Prefs.systemGpuLatch(context).reset(); latched = null }) {
+            Text("Разрешить снова")
         }
     }
 }

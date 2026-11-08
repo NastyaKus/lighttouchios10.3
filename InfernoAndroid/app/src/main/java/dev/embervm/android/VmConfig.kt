@@ -30,6 +30,12 @@ data class VmSettings(
     val haptics: Boolean = true,
     val showFps: Boolean = false,
     val renderer: RendererBackend = RendererBackend.CPU,
+    /**
+     * Run the persistent system GPU host (:system_gpu) for the life of the
+     * boot. Experimental: iOS has no GPU frontend yet, so nothing in the guest
+     * uses it and the VM's disks and arguments do not change.
+     */
+    val systemGpuHost: Boolean = false,
 ) {
     val displayWidth get() = if (halfResolution) 414 else 828
     val displayHeight get() = if (halfResolution) 896 else 1792

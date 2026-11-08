@@ -109,6 +109,8 @@ object RestoreDiagnostics {
             file("vm-engine.log", Prefs.config(context).engineLog)
             file("gpu-lab/status.json",File(root,"gpu-lab/status.json"))
             file("gpu-lab/system-host-selftest.json",SystemGpuHostCheck.file(context))
+            file("system-gpu-vm.json",File(root,"system-gpu-vm.json"))
+            Prefs.systemGpuLatch(context).takeIf { it.tripped }?.let { text("system-gpu-latch.txt",it.reason+"\n") }
             File(root,"gpu-lab/runs").listFiles()?.filter { it.isDirectory && GpuLabKit.runName.matches(it.name) }
                 ?.sortedByDescending { it.name }?.take(3)?.forEach { run ->
                     for(name in GpuLabReports.allowedFiles)file("gpu-lab/${run.name}/$name",File(run,name))
