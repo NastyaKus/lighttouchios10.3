@@ -16,7 +16,7 @@ typedef struct {
     Object *buffer;
     uint64_t offset;
     uint32_t size, type, stride, divisor;
-    int enabled;
+    int enabled, normalized;
 } Attribute;
 typedef struct {
     Object *object;
@@ -42,6 +42,7 @@ typedef struct {
     Object default_array, *array, *array_buffer, *renderbuffer, *program, *read_fbo, *draw_fbo;
     Object *textures[EGS_MAX_TEXTURE_UNITS];
     uint32_t unit;
+    GLuint stream_vbo, stream_ibo; /* EGS_DRAW_CLIENT staging, never exposed */
 } Context;
 struct EgsHost {
     EmberGL transfer;
@@ -390,6 +391,10 @@ int egs_host_destroy(EgsHost *h, uint32_t id) {
         }
         glDeleteFramebuffers(1, &c->default_fbo);
         glDeleteVertexArrays(1, &c->default_vao);
+        if (c->stream_vbo)
+            glDeleteBuffers(1, &c->stream_vbo);
+        if (c->stream_ibo)
+            glDeleteBuffers(1, &c->stream_ibo);
         glFinish();
     }
     make_transfer(h);
@@ -567,6 +572,8 @@ static int shape(const uint8_t *p, uint32_t n, int nested) {
     }
     case EGS_DRAW_BUFFERS:
         return n >= 8 && u32(p + 4) <= 8 && n == 8 + u32(p + 4) * 4;
+    case EGS_DRAW_CLIENT:
+        return n >= 32 && u32(p + 28) >= 1 && u32(p + 28) <= EGS_MAX_ATTRIBS && n == 32 + u32(p + 28) * 24;
     default:
         return 0;
     }
@@ -576,7 +583,7 @@ static int surface_command(uint32_t op) { return op >= EGS_SURFACE_CREATE && op 
 static int uses_blob(uint32_t op) {
     return op == EGS_SURFACE_UPLOAD || op == EGS_SHADER_SOURCE || op == EGS_UNIFORM_FV || op == EGS_UNIFORM_IV ||
            op == EGS_UNIFORM_MATRIX || op == EGS_BUFFER_DATA || op == EGS_BUFFER_SUB_DATA || op == EGS_TEXTURE_IMAGE ||
-           op == EGS_TEXTURE_SUB_IMAGE;
+           op == EGS_TEXTURE_SUB_IMAGE || op == EGS_DRAW_CLIENT;
 }
 static int surface_referenced(EgsHost *h, uint64_t id) {
     for (unsigned i = 0; i < EGS_MAX_OBJECTS; i++)
@@ -711,18 +718,128 @@ static uint32_t pixel_bytes(uint32_t format, uint32_t type) {
         return format == GL_RGBA ? 2 : 0;
     return (type == GL_UNSIGNED_BYTE || type == GL_HALF_FLOAT || type == GL_FLOAT) ? components * type_bytes(type) : 0;
 }
-static int draw_safe(Context *c, uint32_t maximum, uint32_t instances) {
+/* Whether the last element a draw reads (vertex `maximum`, or the last
+ * instance for a divisor) lies inside `length` bytes starting at `offset`. */
+static int span_safe(uint64_t length, uint64_t offset, uint32_t components, uint32_t type, uint32_t stride,
+                     uint32_t divisor, uint32_t maximum, uint32_t instances) {
+    uint64_t bytes = (uint64_t)components * type_bytes(type), step = stride ? stride : bytes;
+    uint64_t index = divisor ? (instances - 1) / divisor : maximum;
+    return bytes && offset <= length && bytes <= length - offset && index <= (length - offset - bytes) / step;
+}
+/* `skip` marks attributes the caller supplies itself (client arrays). */
+static int draw_safe_except(Context *c, uint32_t maximum, uint32_t instances, const uint8_t skip[EGS_MAX_ATTRIBS]) {
     Object *v = bound_array(c);
     for (unsigned i = 0; i < EGS_MAX_ATTRIBS; i++)
-        if (v->attributes[i].enabled) {
+        if (v->attributes[i].enabled && !(skip && skip[i])) {
             Attribute *a = v->attributes + i;
-            uint64_t bytes = (uint64_t)a->size * type_bytes(a->type), stride = a->stride ? a->stride : bytes;
-            uint64_t index = a->divisor ? (instances - 1) / a->divisor : maximum;
-            if (!a->buffer || !bytes || a->offset > a->buffer->size || bytes > a->buffer->size - a->offset ||
-                index > (a->buffer->size - a->offset - bytes) / stride)
+            if (!a->buffer || !span_safe(a->buffer->size, a->offset, a->size, a->type, a->stride, a->divisor, maximum,
+                                         instances))
                 return 0;
         }
     return 1;
+}
+static int draw_safe(Context *c, uint32_t maximum, uint32_t instances) {
+    return draw_safe_except(c, maximum, instances, NULL);
+}
+/* Highest non-restart index, or 0 for none. */
+static uint32_t index_maximum(const uint8_t *p, uint32_t count, uint32_t unit) {
+    uint32_t maximum = 0;
+    for (uint32_t i = 0; i < count; i++) {
+        const uint8_t *idx = p + (uint64_t)i * unit;
+        uint32_t v = idx[0];
+        if (unit >= 2)
+            v |= (uint32_t)idx[1] << 8;
+        if (unit == 4)
+            v |= (uint32_t)idx[2] << 16 | (uint32_t)idx[3] << 24;
+        // ES3 fixed primitive-restart indices do not reference a vertex.
+        if ((unit == 1 && v == UINT8_MAX) || (unit == 2 && v == UINT16_MAX) || (unit == 4 && v == UINT32_MAX))
+            continue;
+        if (v > maximum)
+            maximum = v;
+    }
+    return maximum;
+}
+static uint32_t index_unit(uint32_t type) {
+    return type == GL_UNSIGNED_BYTE ? 1 : type == GL_UNSIGNED_SHORT ? 2 : type == GL_UNSIGNED_INT ? 4 : 0;
+}
+/* EGS_DRAW_CLIENT: validate everything, stage into this context's private
+ * stream buffers, draw, then put back the bindings/pointers the guest set. */
+static void draw_client(Context *c, const uint8_t *p, const uint8_t *upload, uint32_t size) {
+    uint32_t mode = u32(p + 4), first = u32(p + 8), count = u32(p + 12), type = u32(p + 16), at = u32(p + 20),
+             instances = u32(p + 24), k = u32(p + 28), unit = index_unit(type), maximum = 0;
+    if (!count || !instances)
+        return;
+    if (mode > GL_TRIANGLE_FAN || count > INT_MAX || instances > INT_MAX || !upload || size > EGS_CLIENT_DRAW_LIMIT ||
+        (type && !unit) || (!type && at) || (type && first)) {
+        gl_error(c, GL_INVALID_VALUE);
+        return;
+    }
+    if (type) {
+        if (at % unit || at > size || (uint64_t)count * unit > size - at) {
+            gl_error(c, GL_INVALID_OPERATION);
+            return;
+        }
+        maximum = index_maximum(upload + at, count, unit);
+    } else {
+        if (first > INT_MAX || count > INT_MAX - first) {
+            gl_error(c, GL_INVALID_OPERATION);
+            return;
+        }
+        maximum = first + count - 1;
+    }
+    Object *v = bound_array(c);
+    uint8_t mine[EGS_MAX_ATTRIBS] = {0};
+    for (uint32_t i = 0; i < k; i++) {
+        const uint8_t *a = p + 32 + i * 24;
+        uint32_t index = u32(a), components = u32(a + 4), kind = u32(a + 8), normalized = u32(a + 12),
+                 stride = u32(a + 16), offset = u32(a + 20);
+        if (index >= EGS_MAX_ATTRIBS || mine[index] || components < 1 || components > 4 || !type_bytes(kind) ||
+            normalized > 1 || stride > 2048) {
+            gl_error(c, GL_INVALID_VALUE);
+            return;
+        }
+        if (!span_safe(size, offset, components, kind, stride, v->attributes[index].divisor, maximum, instances)) {
+            gl_error(c, GL_INVALID_OPERATION);
+            return;
+        }
+        mine[index] = 1;
+    }
+    if (!draw_safe_except(c, maximum, instances, mine)) {
+        gl_error(c, GL_INVALID_OPERATION);
+        return;
+    }
+    if (!c->stream_vbo)
+        glGenBuffers(1, &c->stream_vbo);
+    if (type && !c->stream_ibo)
+        glGenBuffers(1, &c->stream_ibo);
+    glBindBuffer(GL_ARRAY_BUFFER, c->stream_vbo);
+    glBufferData(GL_ARRAY_BUFFER, (GLsizeiptr)size, upload, GL_STREAM_DRAW);
+    for (uint32_t i = 0; i < k; i++) {
+        const uint8_t *a = p + 32 + i * 24;
+        glVertexAttribPointer(u32(a), (GLint)u32(a + 4), u32(a + 8), u32(a + 12) != 0, (GLsizei)u32(a + 16),
+                              (const void *)(uintptr_t)u32(a + 20));
+    }
+    if (type) {
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, c->stream_ibo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, (GLsizeiptr)((uint64_t)count * unit), upload + at, GL_STREAM_DRAW);
+        glDrawElementsInstanced(mode, (GLsizei)count, type, NULL, (GLsizei)instances);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, v->element ? v->element->name : 0); // retained names stay bound
+    } else
+        glDrawArraysInstanced(mode, (GLint)first, (GLsizei)count, (GLsizei)instances);
+    GLenum error = glGetError();
+    // Client pointers are per draw: restore what the guest specified before.
+    for (uint32_t i = 0; i < EGS_MAX_ATTRIBS; i++)
+        if (mine[i]) {
+            Attribute *t = v->attributes + i;
+            if (!t->buffer)
+                continue; // never specified; draw_safe refuses it until it is
+            glBindBuffer(GL_ARRAY_BUFFER, t->buffer->name);
+            glVertexAttribPointer(i, (GLint)t->size, t->type, t->normalized != 0, (GLsizei)t->stride,
+                                  (const void *)(uintptr_t)t->offset);
+        }
+    glBindBuffer(GL_ARRAY_BUFFER, c->array_buffer ? c->array_buffer->name : 0);
+    if (error)
+        gl_error(c, error);
 }
 static int integer(EgsHost *h, Context *c, uint32_t name, EgsReply *out) {
     GLint v[4] = {0};
@@ -1574,6 +1691,7 @@ static int gl_call(EgsHost *h, Context *c, const uint8_t *p, uint32_t n, const u
         v->type = type;
         v->stride = stride;
         v->offset = offset;
+        v->normalized = U(3) != 0;
         reap(h);
         break;
     }
@@ -1630,20 +1748,7 @@ static int gl_call(EgsHost *h, Context *c, const uint8_t *p, uint32_t n, const u
             gl_error(c, GL_INVALID_OPERATION);
             break;
         }
-        uint32_t maximum = 0;
-        for (uint32_t i = 0; i < count; i++) {
-            const uint8_t *idx = indices->mirror + offset + (uint64_t)i * unit;
-            uint32_t v = idx[0];
-            if (unit >= 2)
-                v |= (uint32_t)idx[1] << 8;
-            if (unit == 4)
-                v |= (uint32_t)idx[2] << 16 | (uint32_t)idx[3] << 24;
-            // ES3 fixed primitive-restart indices do not reference a vertex.
-            if ((unit == 1 && v == UINT8_MAX) || (unit == 2 && v == UINT16_MAX) || (unit == 4 && v == UINT32_MAX))
-                continue;
-            if (v > maximum)
-                maximum = v;
-        }
+        uint32_t maximum = index_maximum(indices->mirror + offset, count, unit);
         if (!draw_safe(c, maximum, instances)) {
             gl_error(c, GL_INVALID_OPERATION);
             break;
@@ -1651,6 +1756,9 @@ static int gl_call(EgsHost *h, Context *c, const uint8_t *p, uint32_t n, const u
         glDrawElementsInstanced(U(0), (GLsizei)count, type, (void *)(uintptr_t)offset, (GLsizei)instances);
         break;
     }
+    case EGS_DRAW_CLIENT:
+        draw_client(c, p, upload, size);
+        break;
     case EGS_VIEWPORT:
         glViewport((GLint)U(0), (GLint)U(1), (GLsizei)U(2), (GLsizei)U(3));
         break;

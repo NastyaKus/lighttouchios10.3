@@ -84,7 +84,13 @@ enum {
     EGS_POLYGON_OFFSET,
     EGS_CLEAR_DEPTH,
     EGS_CLEAR_STENCIL,
-    EGS_READ_PIXELS
+    EGS_READ_PIXELS,
+    /* Client-side vertex arrays (and optionally indices) for one draw, taken
+     * from the CALL upload. Body after opcode: mode, first, count, index_type
+     * (0 = arrays, else GL_UNSIGNED_BYTE/SHORT/INT), index_offset, instances,
+     * attrib_count k (1..16), then k x {index, components, type, normalized,
+     * stride, data_offset}. Previous attribute pointers/bindings are restored. */
+    EGS_DRAW_CLIENT = 128
 };
 enum { EGS_SHADER = 1, EGS_PROGRAM, EGS_BUFFER, EGS_TEXTURE, EGS_RENDERBUFFER, EGS_FRAMEBUFFER, EGS_VERTEX_ARRAY };
 #define EGS_MAX_CONTEXTS 8u
@@ -94,3 +100,4 @@ enum { EGS_SHADER = 1, EGS_PROGRAM, EGS_BUFFER, EGS_TEXTURE, EGS_RENDERBUFFER, E
 #define EGS_MAX_COMMAND_BYTES 65524u
 #define EGS_OBJECT_BUDGET (128u * 1024u * 1024u)
 #define EGS_ARRAY_LIMIT (64u * 1024u * 1024u)
+#define EGS_CLIENT_DRAW_LIMIT (16u * 1024u * 1024u)

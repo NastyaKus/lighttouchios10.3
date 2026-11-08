@@ -43,6 +43,8 @@ static EgsReply call(uint32_t context, const uint8_t *upload, uint32_t size, uns
     } while (0)
 static void check_error(uint32_t context, uint32_t expected) {
     EgsReply r = call(context, NULL, 0, 1, EGS_GET_ERROR);
+    if (r.size != 4 || word(r.data) != expected)
+        fprintf(stderr, "GL error 0x%x, expected 0x%x\n", r.size == 4 ? word(r.data) : 0xffffffffu, expected);
     assert(r.size == 4 && word(r.data) == expected);
     egs_reply_close(&r);
 }
@@ -104,6 +106,131 @@ static void pixels(uint32_t c) {
         assert(r.data[i] == 220 && r.data[i + 1] == 45 && r.data[i + 2] == 7 && r.data[i + 3] == 255);
     }
     egs_reply_close(&r);
+}
+/* EGS_DRAW_CLIENT body: 8 fixed words then k attribute records. */
+static uint32_t client_command(uint8_t *command, uint32_t first, uint32_t count, uint32_t index_type,
+                               uint32_t index_offset, unsigned k, const uint32_t (*attribs)[6]) {
+    uint32_t head[8] = {EGS_DRAW_CLIENT, GL_TRIANGLES, first, count, index_type, index_offset, 1u, k};
+    for (unsigned i = 0; i < 8; i++)
+        put(command + i * 4, head[i]);
+    for (unsigned i = 0; i < k; i++)
+        for (unsigned j = 0; j < 6; j++)
+            put(command + 32 + i * 24 + j * 4, attribs[i][j]);
+    return 32 + k * 24;
+}
+static void client_draw(uint32_t c, const uint8_t *data, uint32_t size, uint32_t first, uint32_t count,
+                        uint32_t index_type, uint32_t index_offset, unsigned k, const uint32_t (*attribs)[6],
+                        uint32_t expected_error) {
+    uint8_t command[32 + 16 * 24];
+    uint32_t n = client_command(command, first, count, index_type, index_offset, k, attribs);
+    EgsReply r = {0};
+    if (!egs_host_call(host, c, command, n, data, size, &r)) {
+        fprintf(stderr, "host error: %s\n", egs_host_error(host));
+        abort();
+    }
+    assert(!r.size);
+    egs_reply_close(&r);
+    check_error(c, expected_error);
+}
+static void clear_target(uint32_t c) {
+    CALL(c, 5, EGS_CLEAR_COLOR, bits(0), bits(0), bits(0), bits(1));
+    CALL(c, 2, EGS_CLEAR, GL_COLOR_BUFFER_BIT);
+    EgsReply r = call(c, NULL, 0, 7, EGS_SURFACE_READ, 700u, 0u, 400u, 900u, 1u, 1u);
+    assert(r.size == 4 && !r.data[0] && !r.data[1] && !r.data[2]);
+    egs_reply_close(&r);
+}
+/* CoreAnimation-style draws from memory: no VBO for these attributes. */
+static void client_arrays(uint32_t c) {
+    // Interleaved position+uv after 12 bytes of unrelated data; then indices.
+    float vertices[] = {-1, -1, 0, 0, 1, -1, 1, 0, -1, 1, 0, 1, 1, 1, 1, 1};
+    uint8_t data[12 + sizeof(vertices) + 12] = {0};
+    for (unsigned i = 0; i < sizeof(vertices) / 4; i++)
+        put(data + 12 + i * 4, bits(vertices[i]));
+    static const uint8_t ib[] = {0, 0, 1, 0, 2, 0, 2, 0, 1, 0, 3, 0};
+    memcpy(data + 12 + sizeof(vertices), ib, sizeof(ib));
+    const uint32_t interleaved[2][6] = {{0, 2, GL_FLOAT, 0, 16, 12}, {1, 2, GL_FLOAT, 0, 16, 20}};
+    const uint32_t vertices_end = 12 + sizeof(vertices);
+    // Indexed, both attributes from the upload.
+    clear_target(c);
+    client_draw(c, data, sizeof(data), 0, 6, GL_UNSIGNED_SHORT, vertices_end, 2, interleaved, GL_NO_ERROR);
+    pixels(c);
+    // Non-indexed strip of two triangles: vertices 0,1,2 and 1,3,2 -> as arrays 0..5 needs 6 verts;
+    // use the same 4 vertices drawn as GL_TRIANGLES over an expanded copy.
+    float expanded[] = {-1, -1, 0, 0, 1, -1, 1, 0, -1, 1, 0, 1, -1, 1, 0, 1, 1, -1, 1, 0, 1, 1, 1, 1};
+    uint8_t flat[sizeof(expanded)];
+    for (unsigned i = 0; i < sizeof(expanded) / 4; i++)
+        put(flat + i * 4, bits(expanded[i]));
+    const uint32_t tight[2][6] = {{0, 2, GL_FLOAT, 0, 16, 0}, {1, 2, GL_FLOAT, 0, 16, 8}};
+    clear_target(c);
+    client_draw(c, flat, sizeof(flat), 0, 6, 0, 0, 2, tight, GL_NO_ERROR);
+    pixels(c);
+    // The VBO pointers set by draw_setup are back: an ordinary draw still works.
+    clear_target(c);
+    render(c);
+    pixels(c);
+    // One client attribute, the other still from VBO 200 (same layout).
+    const uint32_t only_uv[1][6] = {{1, 2, GL_FLOAT, 0, 16, 8}};
+    clear_target(c);
+    client_draw(c, flat, sizeof(flat), 0, 6, 0, 0, 1, only_uv, GL_INVALID_OPERATION); // VBO has 4 vertices, not 6
+    client_draw(c, flat, sizeof(flat), 0, 4, 0, 0, 1, only_uv, GL_NO_ERROR);
+    // Bounds: every rejected draw leaves GL untouched and reports an error.
+    client_draw(c, flat, sizeof(flat), 0, 7, 0, 0, 2, tight, GL_INVALID_OPERATION);   // vertex 6 past the data
+    client_draw(c, flat, sizeof(flat), 1, 6, 0, 0, 2, tight, GL_INVALID_OPERATION);   // first shifts past the end
+    const uint32_t late[2][6] = {{0, 2, GL_FLOAT, 0, 16, 92}, {1, 2, GL_FLOAT, 0, 16, 8}};
+    client_draw(c, flat, sizeof(flat), 0, 1, 0, 0, 2, late, GL_INVALID_OPERATION);    // 92+8 > 96
+    const uint32_t twice[2][6] = {{0, 2, GL_FLOAT, 0, 16, 0}, {0, 2, GL_FLOAT, 0, 16, 8}};
+    client_draw(c, flat, sizeof(flat), 0, 6, 0, 0, 2, twice, GL_INVALID_VALUE);       // duplicate index
+    const uint32_t wide[2][6] = {{0, 5, GL_FLOAT, 0, 16, 0}, {1, 2, GL_FLOAT, 0, 16, 8}};
+    client_draw(c, flat, sizeof(flat), 0, 6, 0, 0, 2, wide, GL_INVALID_VALUE);        // 5 components
+    const uint32_t odd[2][6] = {{0, 2, 0x1234u, 0, 16, 0}, {1, 2, GL_FLOAT, 0, 16, 8}};
+    client_draw(c, flat, sizeof(flat), 0, 6, 0, 0, 2, odd, GL_INVALID_VALUE);         // unknown type
+    uint8_t far_index[sizeof(data)];
+    memcpy(far_index, data, sizeof(data));
+    far_index[vertices_end + 10] = 4; // last u16 index -> vertex 4 of 4
+    far_index[vertices_end + 11] = 0;
+    client_draw(c, far_index, sizeof(far_index), 0, 6, GL_UNSIGNED_SHORT, vertices_end, 2, interleaved,
+                GL_INVALID_OPERATION);
+    client_draw(c, data, sizeof(data), 0, 6, GL_UNSIGNED_SHORT, vertices_end + 1, 2, interleaved,
+                GL_INVALID_OPERATION); // misaligned indices
+    client_draw(c, data, sizeof(data), 0, 7, GL_UNSIGNED_SHORT, vertices_end, 2, interleaved,
+                GL_INVALID_OPERATION); // indices past the upload
+    client_draw(c, data, sizeof(data), 0, 6, GL_INT, vertices_end, 2, interleaved, GL_INVALID_VALUE); // index type
+    // A malformed record count or a missing upload never reaches GL.
+    uint8_t command[32 + 16 * 24];
+    uint32_t n = client_command(command, 0, 6, 0, 0, 2, tight);
+    EgsReply r = {0};
+    assert(!egs_host_call(host, c, command, n - 4, flat, sizeof(flat), &r));
+    egs_reply_close(&r);
+    put(command + 28, 17);
+    assert(!egs_host_call(host, c, command, n, flat, sizeof(flat), &r)); // 17 records claimed, 2 sent
+    egs_reply_close(&r);
+    put(command + 28, 2);
+    assert(egs_host_call(host, c, command, n, NULL, 0, &r));
+    egs_reply_close(&r);
+    check_error(c, GL_INVALID_VALUE);
+    // Batched: two client draws with separate slices of one upload.
+    uint8_t blob[2 * sizeof(flat)];
+    memcpy(blob, flat, sizeof(flat));
+    memcpy(blob + sizeof(flat), flat, sizeof(flat));
+    uint8_t batch[8 + 2 * (12 + 80)];
+    put(batch, EGS_BATCH);
+    put(batch + 4, 2);
+    for (unsigned i = 0; i < 2; i++) {
+        uint8_t *e = batch + 8 + i * 92;
+        put(e, 80);
+        put(e + 4, i * (uint32_t)sizeof(flat));
+        put(e + 8, sizeof(flat));
+        client_command(e + 12, 0, 6, 0, 0, 2, tight);
+    }
+    clear_target(c);
+    assert(egs_host_call(host, c, batch, sizeof(batch), blob, sizeof(blob), &r) && !r.size);
+    egs_reply_close(&r);
+    check_error(c, GL_NO_ERROR);
+    pixels(c);
+    // Ordinary indexed draw from the guest's own element buffer is unaffected.
+    clear_target(c);
+    render(c);
+    pixels(c);
 }
 static void batch_checks(uint32_t c) {
     CALL(c, 5, EGS_CLEAR_COLOR, bits(1), bits(0), bits(0), bits(1));
@@ -238,6 +365,7 @@ int main(void) {
     draw_setup(1);
     render(1);
     pixels(1);
+    client_arrays(1);
     draw_setup(2);
     framebuffer(2);
     render(2);
@@ -274,6 +402,6 @@ int main(void) {
     assert(egs_host_destroy(host, 3));
     egs_host_close(host);
     puts("PASS ES3 shared contexts, 828x1792 indexed IOSurface composition, BGRA stride, retained resources, index "
-         "bounds");
+         "bounds, client-side vertex arrays");
     return 0;
 }
