@@ -1,6 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #define _GNU_SOURCE
 #include "stream.h"
+#ifdef EGPU_GUEST_FREESTANDING
+#define EG_SOCKADDR(p) (p)
+#else
+/* bionic declares connect/bind without glibc's transparent sockaddr union. */
+#define EG_SOCKADDR(p) ((const struct sockaddr *)(p))
+#endif
 uint64_t eg_stream_now(void) {
     struct eg_timespec ts;
     if(clock_gettime(EG_CLOCK_MONOTONIC,&ts))return 0;
@@ -69,7 +75,7 @@ static int new_socket(void) {
 int eg_stream_connect(const char *name) {
     struct eg_sockaddr_un addr;if(!address(&addr,name))return -1;
     int fd=new_socket();if(fd<0)return -1;
-    if(connect(fd,&addr,sizeof(addr))) {
+    if(connect(fd,EG_SOCKADDR(&addr),sizeof(addr))) {
         int error=0;eg_socklen_t size=sizeof(error);
         if(errno!=EG_EINPROGRESS || !eg_stream_wait(fd,EG_POLLOUT,eg_stream_now()+5000) ||
            getsockopt(fd,EG_SOL_SOCKET,EG_SO_ERROR,&error,&size) || error){close(fd);return -1;}
@@ -79,7 +85,7 @@ int eg_stream_connect(const char *name) {
 int eg_stream_listen(const char *name) {
     struct eg_sockaddr_un addr;if(!address(&addr,name))return -1;
     int fd=new_socket();if(fd<0)return -1;
-    if(bind(fd,&addr,sizeof(addr))){close(fd);return -1;}
+    if(bind(fd,EG_SOCKADDR(&addr),sizeof(addr))){close(fd);return -1;}
     if(listen(fd,4)){close(fd);unlink(name);return -1;}
     return fd;
 }

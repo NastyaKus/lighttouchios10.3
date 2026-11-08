@@ -75,7 +75,7 @@ object RestoreDiagnostics {
             }
             val memory=ActivityManager.MemoryInfo().also { context.getSystemService(ActivityManager::class.java).getMemoryInfo(it) }
             val settings=Prefs.load(context)
-            text("device.txt","Ember VM ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\nAndroid API ${Build.VERSION.SDK_INT}, ${Build.MANUFACTURER} ${Build.MODEL}\nABIs=${Build.SUPPORTED_ABIS.joinToString()}\nRAM total=${memory.totalMem} available=${memory.availMem} lowMemory=${memory.lowMemory}\nFree storage=${root.usableSpace}\nGuest cores=${settings.cores} RAM GiB=${settings.memoryGb} TB MiB=${settings.tbSizeMb} splitWx=${settings.splitWx}\nReport generated=${System.currentTimeMillis()}\n")
+            text("device.txt","Ember VM ${BuildConfig.APPLICATION_ID} ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\nAndroid API ${Build.VERSION.SDK_INT}, ${Build.MANUFACTURER} ${Build.MODEL}\nABIs=${Build.SUPPORTED_ABIS.joinToString()}\nRAM total=${memory.totalMem} available=${memory.availMem} lowMemory=${memory.lowMemory}\nFree storage=${root.usableSpace}\nGuest cores=${settings.cores} RAM GiB=${settings.memoryGb} TB MiB=${settings.tbSizeMb} splitWx=${settings.splitWx}\nReport generated=${System.currentTimeMillis()}\n")
             text("android-exit-history.txt",exitHistory(context))
             val traceReport=StringBuilder()
             if(Build.VERSION.SDK_INT>=30) {
@@ -108,6 +108,7 @@ object RestoreDiagnostics {
             file("vm-guest-console.log", Prefs.config(context).guestConsoleLog)
             file("vm-engine.log", Prefs.config(context).engineLog)
             file("gpu-lab/status.json",File(root,"gpu-lab/status.json"))
+            file("gpu-lab/system-host-selftest.json",SystemGpuHostCheck.file(context))
             File(root,"gpu-lab/runs").listFiles()?.filter { it.isDirectory && GpuLabKit.runName.matches(it.name) }
                 ?.sortedByDescending { it.name }?.take(3)?.forEach { run ->
                     for(name in GpuLabReports.allowedFiles)file("gpu-lab/${run.name}/$name",File(run,name))

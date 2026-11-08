@@ -40,6 +40,9 @@ class GpuLabActivity:ComponentActivity() {
         val preview=remember { GpuPreviewController(this) }
         val previewMessage by preview.message.collectAsState()
         DisposableEffect(preview) { preview.bind();onDispose { preview.close() } }
+        val hostCheck=remember { SystemGpuHostCheck(this) }
+        val hostState by hostCheck.state.collectAsState()
+        DisposableEffect(hostCheck) { onDispose { hostCheck.close() } }
         LaunchedEffect(snap.status.run,snap.status.busy) { preview.currentRun=snap.status.run;preview.captureEnabled=snap.status.busy }
         val export=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
             if(uri!=null)scope.launch {
@@ -77,6 +80,22 @@ class GpuLabActivity:ComponentActivity() {
             AndroidView(factory={ SurfaceView(it).also { view -> preview.attach(view) } },
                 modifier=Modifier.fillMaxWidth().height(210.dp))
             Text(previewMessage,color=Palette.Muted)
+            Panel {
+                Text("Системный GPU-хост",style=MaterialTheme.typography.titleLarge)
+                Text("Постоянный GPU-процесс из будущего ускорения iOS выполнит на драйвере телефона полный кадр 828×1792: шейдеры, текстуру IOSurface, общие контексты, чтение 6 МиБ и ${SystemGpuSelfTest.FRAMES} выводов на экран ниже. iOS и диски не нужны, тест занимает несколько секунд.")
+                Text("Это проверка хоста и драйвера, а не ускорение iOS.",color=Palette.Muted)
+            }
+            AndroidView(factory={ SurfaceView(it).also { view -> hostCheck.attach(view) } },
+                modifier=Modifier.fillMaxWidth().height(210.dp))
+            Button(onClick={ hostCheck.start() },enabled=!hostState.busy && !snap.status.busy && !exporting,
+                modifier=Modifier.fillMaxWidth()) { Text("Проверить системный GPU-хост") }
+            Text(hostState.message,color=if(hostState.message.startsWith("PASSED"))Palette.Green
+                else if(hostState.message.startsWith("FAILED"))Palette.Red else Palette.Muted)
+            if(hostState.busy)LinearProgressIndicator(Modifier.fillMaxWidth())
+            if(hostState.result.isNotBlank())Panel {
+                Text("Результат проверки хоста",style=MaterialTheme.typography.titleMedium)
+                SelectionContainer { Text(hostState.result,style=Mono) }
+            }
             Button(onClick={
                 runCatching { startForegroundService(Intent(this@GpuLabActivity,GpuLabService::class.java)
                     .setAction(GpuLabService.START).putExtra(GpuLabService.EXTRA_BROKER,true)) }

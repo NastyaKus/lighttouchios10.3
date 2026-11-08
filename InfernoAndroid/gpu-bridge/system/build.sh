@@ -6,6 +6,12 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$OUT"
 ${CC:-cc} -std=c11 -O2 -D_DEFAULT_SOURCE -DEGP2_SELFTEST_MAIN -Wall -Wextra -Werror ${TEST_CFLAGS:-} \
   "$HERE/wire.c" "$HERE/../stream.c" "$HERE/../protocol.c" "$HERE/wire-selftest.c" -lcrypto -o "$OUT/egp2-selftest"
+# The same vectors with the builtin crypto of the Android self-test client.
+${CC:-cc} -std=c11 -O2 -D_DEFAULT_SOURCE -DEGP2_SELFTEST_MAIN -DEGP2_BUILTIN_CRYPTO -Wall -Wextra -Werror ${TEST_CFLAGS:-} \
+  "$HERE/wire.c" "$HERE/crypto.c" "$HERE/../stream.c" "$HERE/../protocol.c" "$HERE/wire-selftest.c" -o "$OUT/egp2-selftest-builtin"
+"$OUT/egp2-selftest-builtin"
+${CC:-cc} -std=c11 -O2 -Wall -Wextra -Werror ${TEST_CFLAGS:-} "$HERE/crypto.c" "$HERE/crypto-test.c" -lcrypto -o "$OUT/egp2-crypto-test"
+"$OUT/egp2-crypto-test"
 "$OUT/egp2-selftest"
 ${CC:-cc} -std=c11 -O2 -D_DEFAULT_SOURCE -Wall -Wextra -Werror \
   "$HERE/wire.c" "$HERE/../stream.c" "$HERE/../protocol.c" "$HERE/peer-test.c" -lcrypto -o "$OUT/egp2-peer-linux"

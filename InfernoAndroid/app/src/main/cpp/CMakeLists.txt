@@ -33,3 +33,13 @@ target_include_directories(ember_system_gpu PRIVATE ${GPU_BRIDGE} ${CMAKE_CURREN
 target_compile_options(ember_system_gpu PRIVATE -O2 -Wall -Wextra -Werror)
 target_link_libraries(ember_system_gpu PRIVATE android EGL GLESv3)
 target_link_options(ember_system_gpu PRIVATE -Wl,-z,max-page-size=16384)
+
+# Client half of the system GPU host self-test (GPU lab UI process). Links no
+# EGL/GLES: it talks EGP2 over loopback to the :system_gpu process.
+add_library(ember_system_gpu_selftest SHARED system_gpu_selftest_jni.c
+    ${GPU_BRIDGE}/system/selftest.c ${GPU_BRIDGE}/system/client.c ${GPU_BRIDGE}/system/wire.c
+    ${GPU_BRIDGE}/system/crypto.c ${GPU_BRIDGE}/stream.c ${GPU_BRIDGE}/protocol.c)
+target_include_directories(ember_system_gpu_selftest PRIVATE ${GPU_BRIDGE} ${CMAKE_CURRENT_SOURCE_DIR})
+target_compile_definitions(ember_system_gpu_selftest PRIVATE EGP2_BUILTIN_CRYPTO _DEFAULT_SOURCE)
+target_compile_options(ember_system_gpu_selftest PRIVATE -O2 -Wall -Wextra -Werror)
+target_link_options(ember_system_gpu_selftest PRIVATE -Wl,-z,max-page-size=16384)

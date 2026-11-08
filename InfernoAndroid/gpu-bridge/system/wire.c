@@ -5,6 +5,10 @@
 extern void arc4random_buf(void *,size_t);
 extern void CCHmac(unsigned int,const void *,size_t,const void *,size_t,void *);
 extern unsigned char *CC_SHA256(const void *,unsigned int,unsigned char *);
+#elif defined(EGP2_BUILTIN_CRYPTO)
+/* Android self-test client: bionic arc4random_buf, our own SHA-256/HMAC. */
+#include "crypto.h"
+#include <stdlib.h>
 #else
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
@@ -58,6 +62,8 @@ int egp2_read(int fd,uint8_t buffer[EGP2_HEADER+EGP2_PAYLOAD],Egp2Frame *f,uint6
 void egp2_sha256(const uint8_t *data,uint32_t size,uint8_t hash[32]) {
 #ifdef EGPU_GUEST_FREESTANDING
     CC_SHA256(data,size,hash);
+#elif defined(EGP2_BUILTIN_CRYPTO)
+    egp2_builtin_sha256(data,size,hash);
 #else
     SHA256(data,size,hash);
 #endif
@@ -65,6 +71,8 @@ void egp2_sha256(const uint8_t *data,uint32_t size,uint8_t hash[32]) {
 void egp2_hmac(const uint8_t secret[32],const uint8_t *data,uint32_t size,uint8_t out[32]) {
 #ifdef EGPU_GUEST_FREESTANDING
     CCHmac(2,secret,32,data,size,out);
+#elif defined(EGP2_BUILTIN_CRYPTO)
+    egp2_builtin_hmac(secret,data,size,out);
 #else
     unsigned got=32;HMAC(EVP_sha256(),secret,32,data,size,out,&got);
 #endif
@@ -79,7 +87,7 @@ static int equal(const uint8_t *a,const uint8_t *b,unsigned size) {
 }
 int egp2_authenticate(int fd,const uint8_t secret[32],const uint8_t run[16],uint64_t deadline) {
     uint8_t hello[60],reply[76],mac[32];memcpy(hello,"EGR2AUTH",8);egp2_put32(hello+8,2);memcpy(hello+12,run,16);
-#ifdef EGPU_GUEST_FREESTANDING
+#if defined(EGPU_GUEST_FREESTANDING) || defined(EGP2_BUILTIN_CRYPTO)
     arc4random_buf(hello+28,32);
 #else
     if(RAND_bytes(hello+28,32)!=1)return 0;
